@@ -1041,11 +1041,16 @@ Mockito, Instancio. Build con unit test (Surefire) e integration test `*IT`
   configurabile dal builder via `logPrefix(...)` (default `task-telemetry -`, stringa
   vuota = nessun prefisso); applicato all'handler di logging di default. Nessun file
   di configurazione.
+- Stato derivato lato listener (§9.1): `TaskExecutionStatus`
+  (`RUNNING/STALE/LOST/COMPLETED/FAILED/CANCELLED`) e `TaskHeartbeatMonitor`
+  (package `org.tasktelemetry.monitor`), un `TaskListener` che ricava lo stato
+  da `lastSeen` (tempo di ricezione via `Clock` iniettabile) e dalle soglie
+  `staleAfter`/`lostAfter`; gli eventi terminali congelano lo stato. Le soglie
+  sono configurate sul monitor (non sul builder di `TaskTelemetry`).
 - Esempio Java puro: `org.tasktelemetry.example.simple.OnlyTaskExample`.
 
 ### 30.2 Non ancora implementato
 
-- Stato derivato lato listener `RUNNING/STALE/LOST` (§9.1).
 - Dispatch asincrono opzionale (§17): solo sincrono.
 - Modello progress ricco `current/max/unit` (§7.2): solo percentuale.
 - `failed(Throwable)`: il messaggio è `Throwable.toString()` e il throwable
