@@ -3,22 +3,17 @@ package org.tasktelemetry.example.clientserver.example2;
 import java.time.Duration;
 
 import org.tasktelemetry.TaskReporter;
-import org.tasktelemetry.TaskTelemetry;
 
 /**
  * Simulated file upload used as a producer example.
  *
  * <p>This is an ordinary class: it only knows how to upload a file and report its
- * progress. It does not know whether it runs on a scheduler, on a background
- * thread or in the foreground, and it does not know who (if anyone) is listening.
- * It never emits heartbeats: those are produced automatically by the runtime
- * while the reporter is open and the upload is silent between steps.
+ * progress. It does not build any telemetry runtime, does not know whether it
+ * runs on a scheduler or a background thread, and does not know who is listening.
+ * It just asks the shared {@link UploadBus#RUNTIME} for a reporter and emits
+ * progress. Heartbeats during the pauses are produced automatically.
  *
- * <p>It creates its own {@link TaskTelemetry} over the {@link UploadBus} shared
- * transport, so a separately-created client can observe its events. The whole
- * upload takes about 30 seconds: a {@code STARTED} event, progress from 0% to
- * 100% in 10% steps with a pause between each, heartbeats during the pauses, and
- * a final {@code COMPLETED} event.
+ * <p>The whole upload takes about 30 seconds.
  */
 public final class TaskUpload {
 
@@ -26,12 +21,9 @@ public final class TaskUpload {
 
     private static final int PROGRESS_STEP = 10;
     private static final Duration STEP_DELAY = Duration.ofSeconds(3);
-    private static final Duration HEARTBEAT_INTERVAL = Duration.ofSeconds(2);
 
     public void upload(String fileName) {
-        try (TaskTelemetry telemetry = newTelemetry();
-                TaskReporter reporter = telemetry.start(TASK_NAME, fileName)) {
-
+        try (TaskReporter reporter = UploadBus.RUNTIME.start(TASK_NAME, fileName)) {
             reporter.progress(0, "Upload started");
             reporter.info("Reading " + fileName);
 
@@ -42,13 +34,6 @@ public final class TaskUpload {
 
             reporter.completed("Upload completed: " + fileName);
         }
-    }
-
-    private static TaskTelemetry newTelemetry() {
-        return TaskTelemetry.builder()
-                .transport(UploadBus.SHARED_TRANSPORT)
-                .heartbeatInterval(HEARTBEAT_INTERVAL)
-                .build();
     }
 
     private static void pause() {
