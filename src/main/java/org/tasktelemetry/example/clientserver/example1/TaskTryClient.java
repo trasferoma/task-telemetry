@@ -1,4 +1,4 @@
-package org.tasktelemetry.example.clientserver;
+package org.tasktelemetry.example.clientserver.example1;
 
 import org.tasktelemetry.TaskTelemetry;
 import org.tasktelemetry.event.TaskEvent;

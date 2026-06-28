@@ -1047,6 +1047,10 @@ Mockito, Instancio. Build con unit test (Surefire) e integration test `*IT`
   da `lastSeen` (tempo di ricezione via `Clock` iniettabile) e dalle soglie
   `staleAfter`/`lostAfter`; gli eventi terminali congelano lo stato. Le soglie
   sono configurate sul monitor (non sul builder di `TaskTelemetry`).
+- Attesa del task lato client con timeout (§31): `ListenerRegistration.awaitStart(Duration)`
+  registra il listener filtrato e blocca fino al primo evento corrispondente
+  (`CountDownLatch`), poi continua a consegnare il live; in timeout fa unsubscribe e
+  lancia `TaskAwaitTimeoutException`. Transport-agnostica.
 - Esempio Java puro: `org.tasktelemetry.example.simple.OnlyTaskExample`.
 
 ### 30.2 Non ancora implementato
@@ -1065,4 +1069,105 @@ Mockito, Instancio. Build con unit test (Surefire) e integration test `*IT`
   configurabile in futuro.
 - Nessuna SPI di serializzazione: verrà introdotta solo con il transport socket
   (§15).
+
+---
+
+## 31. Attesa del task lato client con timeout
+
+> Stato: **implementata** (`ListenerRegistration.awaitStart(Duration)` +
+> `TaskAwaitTimeoutException`). Resta esterno il transport cross-process (§24) per
+> lo scenario a processi separati.
+
+### 31.1 Scenario
+
+Un processo di frontend deve mostrare un'interfaccia, ma per farlo dipende da un
+task (schedulato o avviato altrove) che deve girare e arrivare a completamento.
+Quando il frontend parte è un **client** del task, che in quel momento può:
+
+- essere già in esecuzione;
+- non essere ancora partito;
+- (caso fuori scope) essere già terminato.
+
+Il client conosce il `taskName` e vuole ricevere la telemetria live; se il task
+non è ancora partito vuole **aspettarlo per un tempo massimo** e, scaduto il
+timeout, fallire in modo esplicito lasciando la gestione all'applicazione.
+
+### 31.2 In scope / fuori scope
+
+In scope:
+
+- se il task **sta girando**, ricevere la sua telemetria live (filtrando per
+  `taskName`, senza conoscere l'`executionId`);
+- se il client parte **prima** del task, attendere con un **timeout**: alla prima
+  comparsa di un evento del task l'attesa si sblocca e il client prosegue a
+  ricevere il live; altrimenti scatta il timeout.
+
+Fuori scope (confermato): conoscere l'ultimo stato di processi non in esecuzione,
+qualunque forma di storage/ultimo-stato-noto, far partire il task, attesa
+affidabile del completamento di task non osservati. La telemetria resta
+osservazione passiva e **solo in uscita** dal task (nessun comando, §9.2).
+
+### 31.3 Semantica
+
+```text
+client prima del task  -> attende; primo evento del task entro il timeout -> sblocca e prosegue live
+client mentre gira     -> primo evento (progress o HEARTBEAT) entro poco -> sblocca
+nessun evento entro T  -> TaskAwaitTimeoutException (gestita a livello applicativo)
+task già terminato     -> nessun evento -> timeout (caso fuori scope)
+```
+
+### 31.4 Sinergia con l'heartbeat
+
+Un task **in esecuzione ma momentaneamente silenzioso** emette comunque
+`HEARTBEAT`. Quindi il client in attesa riceve un evento entro circa
+`heartbeatInterval` e distingue "non ancora partito" da "in corso ma fermo",
+senza bisogno di alcun ultimo stato.
+
+Vincolo: con heartbeat attivo il timeout scelto dal client dovrebbe essere
+**maggiore di `heartbeatInterval`**, altrimenti si rischiano falsi timeout su task
+vivi ma silenziosi. Con heartbeat disabilitato, l'attesa rileva il task solo al
+primo evento applicativo (progress/info/...).
+
+### 31.5 API prevista
+
+Operazione terminale **bloccante** sulla registrazione del listener, alternativa
+a `start()`:
+
+```java
+// non bloccante (già esistente)
+ListenerHandle handle = telemetry.listen()
+        .taskName("MIO_TASK")
+        .onEvent(ui)
+        .start();
+
+// bloccante: ritorna appena arriva il primo evento del task, o lancia in timeout
+ListenerHandle handle = telemetry.listen()
+        .taskName("MIO_TASK")
+        .onEvent(ui)
+        .awaitStart(Duration.ofSeconds(30));
+```
+
+Il listener `ui` riceve il primo evento e tutti i successivi; `awaitStart` blocca
+solo fino al primo arrivo. In timeout esegue l'unsubscribe e lancia.
+
+### 31.6 Requisiti implementativi
+
+- **Nessun buco tra attesa e live**: l'attesa deve registrare già il listener
+  live e usare il primo evento solo come segnale di sblocco (non "aspetta, poi
+  iscriviti", che perderebbe eventi nel mezzo). Realizzabile con un
+  `CountDownLatch` armato sul primo evento più `latch.await(timeout)`.
+- **Transport-agnostica**: la primitiva si appoggia a `TaskTransport` e non
+  dipende dal transport concreto; si implementa e si testa ora sull'in-memory e
+  funzionerà identica con un futuro transport cross-process.
+- Nuovo tipo `TaskAwaitTimeoutException` per il timeout (unchecked salvo diversa
+  decisione), pensato per la gestione applicativa.
+- Per il caso reale a processi separati resta necessario un **transport
+  cross-process** (§24): è l'unico prerequisito mancante, esterno alla primitiva.
+
+### 31.7 Testabilità
+
+- sblocco immediato quando un evento del task è già presente (pubblicazione poi
+  `awaitStart` con timeout ampio);
+- timeout deterministico con attese brevi quando nessun evento arriva;
+- nessuna dipendenza dal transport concreto (verifica sull'in-memory).
 
