@@ -1,4 +1,4 @@
-package org.tasktelemetry;
+package org.tasktelemetry.heartbeat;
 
 /**
  * Handle to a scheduled heartbeat, used to stop it.

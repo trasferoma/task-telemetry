@@ -1,4 +1,4 @@
-package org.tasktelemetry;
+package org.tasktelemetry.event;
 
 /**
  * Type of a {@link TaskEvent} emitted during a task execution.

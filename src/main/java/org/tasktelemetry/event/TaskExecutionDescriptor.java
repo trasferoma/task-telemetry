@@ -1,4 +1,4 @@
-package org.tasktelemetry;
+package org.tasktelemetry.event;
 
 /**
  * Identity of a single task execution, shared by every event it emits.

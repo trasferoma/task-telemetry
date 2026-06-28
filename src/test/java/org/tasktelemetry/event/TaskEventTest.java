@@ -1,4 +1,4 @@
-package org.tasktelemetry;
+package org.tasktelemetry.event;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;

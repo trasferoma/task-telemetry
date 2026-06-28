@@ -1,6 +1,9 @@
-package org.tasktelemetry;
+package org.tasktelemetry.listener;
 
 import java.util.Objects;
+
+import org.tasktelemetry.event.TaskEventType;
+import org.tasktelemetry.transport.TaskTransport;
 
 /**
  * Fluent registration of a filtered listener on a {@link TaskTransport}.
@@ -25,8 +28,8 @@ public final class ListenerRegistration {
     private TaskEventType eventType;
     private TaskListener delegate;
 
-    ListenerRegistration(TaskTransport transport) {
-        this.transport = transport;
+    public ListenerRegistration(TaskTransport transport) {
+        this.transport = Objects.requireNonNull(transport, "transport must not be null");
     }
 
     public ListenerRegistration taskName(String taskName) {

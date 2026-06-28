@@ -1,4 +1,4 @@
-package org.tasktelemetry;
+package org.tasktelemetry.heartbeat;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -8,6 +8,11 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
+
+import org.tasktelemetry.TaskReporter;
+import org.tasktelemetry.event.TaskEventType;
+import org.tasktelemetry.event.TaskExecutionDescriptor;
+import org.tasktelemetry.transport.InMemoryTaskTransport;
 
 /**
  * End-to-end integration test of the automatic heartbeat using the real

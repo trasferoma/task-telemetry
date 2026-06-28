@@ -6,6 +6,14 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
 
+import org.tasktelemetry.event.TaskEventType;
+import org.tasktelemetry.event.TaskExecutionDescriptor;
+import org.tasktelemetry.heartbeat.ExecutorHeartbeatScheduler;
+import org.tasktelemetry.heartbeat.HeartbeatScheduler;
+import org.tasktelemetry.listener.ListenerRegistration;
+import org.tasktelemetry.transport.InMemoryTaskTransport;
+import org.tasktelemetry.transport.TaskTransport;
+
 /**
  * Entry point of the library: configures the runtime and acts as a factory for
  * {@link TaskReporter} instances and listener registrations.

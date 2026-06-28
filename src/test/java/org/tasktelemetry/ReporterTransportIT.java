@@ -10,6 +10,12 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import org.tasktelemetry.event.TaskEvent;
+import org.tasktelemetry.event.TaskEventType;
+import org.tasktelemetry.event.TaskExecutionDescriptor;
+import org.tasktelemetry.transport.InMemoryTaskTransport;
+import org.tasktelemetry.transport.TaskTransport;
+
 /**
  * End-to-end integration test wiring the real {@link TaskReporter},
  * {@link InMemoryTaskTransport} and a listener, with no mocks: events emitted by

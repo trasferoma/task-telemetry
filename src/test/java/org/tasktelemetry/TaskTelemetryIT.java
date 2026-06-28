@@ -13,6 +13,11 @@ import java.util.function.Supplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import org.tasktelemetry.event.TaskEvent;
+import org.tasktelemetry.event.TaskEventType;
+import org.tasktelemetry.listener.ListenerHandle;
+import org.tasktelemetry.transport.InMemoryTaskTransport;
+
 /**
  * End-to-end integration test of {@link TaskTelemetry} with the real
  * {@link InMemoryTaskTransport}: starting executions, runtime-side filtering and

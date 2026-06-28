@@ -1,6 +1,9 @@
-package org.tasktelemetry;
+package org.tasktelemetry.listener;
 
 import java.util.Objects;
+
+import org.tasktelemetry.event.TaskEvent;
+import org.tasktelemetry.event.TaskEventType;
 
 /**
  * Wraps a {@link TaskListener} and forwards only the events that match the

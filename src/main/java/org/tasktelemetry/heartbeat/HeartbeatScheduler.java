@@ -1,13 +1,12 @@
-package org.tasktelemetry;
+package org.tasktelemetry.heartbeat;
 
 import java.time.Duration;
 
 /**
  * Schedules a periodic heartbeat task.
  *
- * <p>This abstraction keeps the {@link TaskReporter} free of any threading
- * detail and lets tests drive heartbeat ticks deterministically, without real
- * time (see SPEC).
+ * <p>This abstraction keeps the reporter free of any threading detail and lets
+ * tests drive heartbeat ticks deterministically, without real time (see SPEC).
  */
 public interface HeartbeatScheduler {
 

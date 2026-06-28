@@ -1,4 +1,4 @@
-package org.tasktelemetry;
+package org.tasktelemetry.listener;
 
 /**
  * Handle to a registered listener, used to unregister it.

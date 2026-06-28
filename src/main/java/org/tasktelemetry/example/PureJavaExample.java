@@ -1,8 +1,8 @@
 package org.tasktelemetry.example;
 
-import org.tasktelemetry.TaskEvent;
 import org.tasktelemetry.TaskReporter;
 import org.tasktelemetry.TaskTelemetry;
+import org.tasktelemetry.event.TaskEvent;
 
 /**
  * Minimal pure-Java usage example (no framework): a runtime with the default

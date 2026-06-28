@@ -1,4 +1,4 @@
-package org.tasktelemetry;
+package org.tasktelemetry.heartbeat;
 
 import java.time.Duration;
 import java.util.concurrent.Executors;

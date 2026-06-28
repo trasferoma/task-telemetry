@@ -1,4 +1,4 @@
-package org.tasktelemetry;
+package org.tasktelemetry.listener;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
@@ -8,6 +8,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+
+import org.tasktelemetry.event.TaskEvent;
+import org.tasktelemetry.event.TaskEventType;
 
 class FilteringTaskListenerTest {
 

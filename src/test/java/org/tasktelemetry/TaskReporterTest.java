@@ -20,6 +20,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.tasktelemetry.event.TaskEvent;
+import org.tasktelemetry.event.TaskEventType;
+import org.tasktelemetry.event.TaskExecutionDescriptor;
+import org.tasktelemetry.transport.TaskTransport;
+
 @ExtendWith(MockitoExtension.class)
 class TaskReporterTest {
 

@@ -19,6 +19,14 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.tasktelemetry.event.TaskEvent;
+import org.tasktelemetry.event.TaskEventType;
+import org.tasktelemetry.heartbeat.HeartbeatHandle;
+import org.tasktelemetry.heartbeat.HeartbeatScheduler;
+import org.tasktelemetry.listener.ListenerHandle;
+import org.tasktelemetry.listener.TaskListener;
+import org.tasktelemetry.transport.TaskTransport;
+
 @ExtendWith(MockitoExtension.class)
 class TaskTelemetryTest {
 

@@ -1,4 +1,4 @@
-package org.tasktelemetry;
+package org.tasktelemetry.transport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
@@ -9,6 +9,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+
+import org.tasktelemetry.event.TaskEvent;
+import org.tasktelemetry.event.TaskEventType;
+import org.tasktelemetry.listener.TaskListener;
 
 class InMemoryTaskTransportTest {
 

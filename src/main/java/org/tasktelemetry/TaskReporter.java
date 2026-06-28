@@ -4,6 +4,13 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.Objects;
 
+import org.tasktelemetry.event.TaskEvent;
+import org.tasktelemetry.event.TaskEventType;
+import org.tasktelemetry.event.TaskExecutionDescriptor;
+import org.tasktelemetry.heartbeat.HeartbeatHandle;
+import org.tasktelemetry.heartbeat.HeartbeatScheduler;
+import org.tasktelemetry.transport.TaskTransport;
+
 /**
  * Emits telemetry events for a single task execution.
  *

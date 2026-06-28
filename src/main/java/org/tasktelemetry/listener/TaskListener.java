@@ -1,4 +1,6 @@
-package org.tasktelemetry;
+package org.tasktelemetry.listener;
+
+import org.tasktelemetry.event.TaskEvent;
 
 /**
  * Receives events emitted by task executions.

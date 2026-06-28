@@ -1,4 +1,4 @@
-package org.tasktelemetry;
+package org.tasktelemetry.event;
 
 import java.time.Instant;
 import java.util.Objects;

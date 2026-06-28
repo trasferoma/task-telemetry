@@ -929,10 +929,15 @@ task-telemetry-transport-inmemory
 task-telemetry-examples
 ```
 
-> Stato attuale: il progetto è ancora a **modulo singolo**. Tutto il core, il
-> transport in-memory e l'esempio vivono nel package `org.tasktelemetry`
-> (esempio in `org.tasktelemetry.example`). La conversione a multi-modulo resta
-> da fare.
+> Stato attuale: il progetto è ancora a **modulo singolo**, ma le classi sono
+> organizzate per funzionalità in sotto-package:
+> `org.tasktelemetry` (runtime: `TaskTelemetry`, `TaskReporter`),
+> `org.tasktelemetry.event` (`TaskEvent`, `TaskEventType`, `TaskExecutionDescriptor`),
+> `org.tasktelemetry.transport` (`TaskTransport`, `InMemoryTaskTransport`),
+> `org.tasktelemetry.heartbeat` (`HeartbeatScheduler`, `HeartbeatHandle`, `ExecutorHeartbeatScheduler`),
+> `org.tasktelemetry.listener` (`TaskListener`, `ListenerRegistration`, `ListenerHandle`, `FilteringTaskListener`),
+> `org.tasktelemetry.example` (`PureJavaExample`).
+> La conversione a multi-modulo resta da fare.
 
 Non implementare subito socket, Redis, Spring o dashboard.
 

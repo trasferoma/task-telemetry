@@ -1,4 +1,7 @@
-package org.tasktelemetry;
+package org.tasktelemetry.transport;
+
+import org.tasktelemetry.event.TaskEvent;
+import org.tasktelemetry.listener.TaskListener;
 
 /**
  * Pluggable delivery channel between event emitters and listeners.
