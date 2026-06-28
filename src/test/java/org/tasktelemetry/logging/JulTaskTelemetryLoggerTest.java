@@ -50,6 +50,19 @@ class JulTaskTelemetryLoggerTest {
     }
 
     @Test
+    void logsInfoMessageWithPrefix() {
+        TaskTelemetryLogger telemetryLogger = new JulTaskTelemetryLogger(logger, "task-telemetry -");
+
+        telemetryLogger.info("execution started");
+
+        assertThat(records).singleElement()
+                .satisfies(record -> {
+                    assertThat(record.getLevel()).isEqualTo(Level.INFO);
+                    assertThat(record.getMessage()).isEqualTo("task-telemetry - execution started");
+                });
+    }
+
+    @Test
     void attachesThrowableToError() {
         TaskTelemetryLogger telemetryLogger = new JulTaskTelemetryLogger(logger, "task-telemetry -");
         RuntimeException failure = new RuntimeException("boom");
