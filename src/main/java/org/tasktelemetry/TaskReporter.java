@@ -1,0 +1,312 @@
+package org.tasktelemetry;
+
+import java.time.Clock;
+import java.time.Duration;
+import java.util.Objects;
+
+/**
+ * Emits telemetry events for a single task execution.
+ *
+ * <p>A reporter is bound to one {@link TaskExecutionDescriptor}. It emits
+ * {@link TaskEventType#STARTED} on creation and publishes every subsequent event
+ * through the configured {@link TaskTransport}, generating {@code eventId},
+ * {@code timestamp} (from the injected {@link Clock}) and a monotonic
+ * {@code sequenceNumber}.
+ *
+ * <p>When a {@link HeartbeatScheduler} and an interval are supplied, the reporter
+ * emits a {@link TaskEventType#HEARTBEAT} on every tick during which no other
+ * event was emitted: normal events count as liveness signals and suppress the
+ * next heartbeat. The heartbeat starts after {@code STARTED} and stops as soon as
+ * a terminal event is emitted or the reporter is closed.
+ *
+ * <p>The reporter implements {@link AutoCloseable} and is meant to be used with
+ * try-with-resources. If it is closed without a terminal event having been
+ * emitted, it applies its {@link CloseBehavior} (by default it emits
+ * {@link TaskEventType#CANCELLED}).
+ *
+ * <p>Once a terminal event ({@code COMPLETED}, {@code FAILED} or
+ * {@code CANCELLED}) has been emitted, any further emission throws
+ * {@link IllegalStateException}; {@link #close()} becomes a no-op.
+ *
+ * <p>Instances are safe for concurrent use: event emission is serialized so that
+ * sequence numbers and lifecycle state stay consistent, including against the
+ * heartbeat thread.
+ */
+public final class TaskReporter implements AutoCloseable {
+
+    /**
+     * Action taken when the reporter is closed without a terminal event.
+     */
+    public enum CloseBehavior {
+        CANCELLED,
+        FAILED,
+        IGNORE
+    }
+
+    private static final String CLOSE_WITHOUT_TERMINAL_MESSAGE =
+            "Reporter closed without a terminal event";
+
+    private final TaskExecutionDescriptor descriptor;
+    private final TaskTransport transport;
+    private final Clock clock;
+    private final CloseBehavior closeBehavior;
+
+    private long nextSequenceNumber;
+    private boolean terminalEmitted;
+    private boolean closed;
+    private boolean emittedSinceLastTick;
+    private HeartbeatHandle heartbeatHandle;
+
+    /**
+     * Creates a reporter using the system UTC clock, the default
+     * {@link CloseBehavior#CANCELLED} close behavior and no heartbeat.
+     *
+     * @param descriptor identity of the execution, required
+     * @param transport  transport used to publish events, required
+     */
+    public TaskReporter(TaskExecutionDescriptor descriptor, TaskTransport transport) {
+        this(descriptor, transport, Clock.systemUTC(), CloseBehavior.CANCELLED);
+    }
+
+    /**
+     * Creates a reporter without a heartbeat.
+     *
+     * @param descriptor    identity of the execution, required
+     * @param transport     transport used to publish events, required
+     * @param clock         clock used to timestamp events, required
+     * @param closeBehavior action taken on close without a terminal event, required
+     */
+    public TaskReporter(
+            TaskExecutionDescriptor descriptor,
+            TaskTransport transport,
+            Clock clock,
+            CloseBehavior closeBehavior) {
+
+        this(descriptor, transport, clock, closeBehavior, null, null);
+    }
+
+    /**
+     * Creates a reporter, emits {@link TaskEventType#STARTED} and, when a
+     * scheduler and interval are supplied, starts the automatic heartbeat.
+     *
+     * @param descriptor         identity of the execution, required
+     * @param transport          transport used to publish events, required
+     * @param clock              clock used to timestamp events, required
+     * @param closeBehavior      action taken on close without a terminal event, required
+     * @param heartbeatScheduler scheduler driving the heartbeat, or {@code null} to disable it
+     * @param heartbeatInterval  delay between heartbeats, or {@code null} to disable it
+     */
+    public TaskReporter(
+            TaskExecutionDescriptor descriptor,
+            TaskTransport transport,
+            Clock clock,
+            CloseBehavior closeBehavior,
+            HeartbeatScheduler heartbeatScheduler,
+            Duration heartbeatInterval) {
+
+        this.descriptor = Objects.requireNonNull(descriptor, "descriptor must not be null");
+        this.transport = Objects.requireNonNull(transport, "transport must not be null");
+        this.clock = Objects.requireNonNull(clock, "clock must not be null");
+        this.closeBehavior = Objects.requireNonNull(closeBehavior, "closeBehavior must not be null");
+
+        emit(TaskEventType.STARTED, null, null, null);
+        this.heartbeatHandle = startHeartbeat(heartbeatScheduler, heartbeatInterval);
+    }
+
+    /**
+     * Returns the identity of the execution this reporter is bound to.
+     *
+     * @return the execution descriptor
+     */
+    public TaskExecutionDescriptor descriptor() {
+        return descriptor;
+    }
+
+    /**
+     * Emits a progress event.
+     *
+     * @param percentage completion percentage between {@code 0} and {@code 100}
+     * @param message    optional message, may be {@code null}
+     */
+    public synchronized void progress(int percentage, String message) {
+        ensureActive();
+        emit(TaskEventType.PROGRESS, message, percentage, null);
+    }
+
+    /**
+     * Emits an informational event.
+     *
+     * @param message the message, may be {@code null}
+     */
+    public synchronized void info(String message) {
+        ensureActive();
+        emit(TaskEventType.INFO, message, null, null);
+    }
+
+    /**
+     * Emits a warning event.
+     *
+     * @param message the message, may be {@code null}
+     */
+    public synchronized void warning(String message) {
+        ensureActive();
+        emit(TaskEventType.WARNING, message, null, null);
+    }
+
+    /**
+     * Emits a heartbeat event signalling that the execution is still alive.
+     */
+    public synchronized void heartbeat() {
+        ensureActive();
+        emit(TaskEventType.HEARTBEAT, null, null, null);
+    }
+
+    /**
+     * Emits a custom application event.
+     *
+     * @param message optional message, may be {@code null}
+     * @param payload optional payload, may be {@code null}
+     */
+    public synchronized void custom(String message, Object payload) {
+        ensureActive();
+        emit(TaskEventType.CUSTOM, message, null, payload);
+    }
+
+    /**
+     * Emits a terminal success event.
+     *
+     * @param message optional message, may be {@code null}
+     */
+    public synchronized void completed(String message) {
+        emitTerminal(TaskEventType.COMPLETED, message, null);
+    }
+
+    /**
+     * Emits a terminal failure event carrying the error.
+     *
+     * @param error the cause of the failure, required
+     */
+    public synchronized void failed(Throwable error) {
+        Objects.requireNonNull(error, "error must not be null");
+        emitTerminal(TaskEventType.FAILED, error.toString(), error);
+    }
+
+    /**
+     * Emits a terminal cancellation event.
+     *
+     * @param message optional message, may be {@code null}
+     */
+    public synchronized void cancelled(String message) {
+        emitTerminal(TaskEventType.CANCELLED, message, null);
+    }
+
+    @Override
+    public synchronized void close() {
+        if (terminalEmitted || closed) {
+            closed = true;
+            stopHeartbeat();
+            return;
+        }
+
+        emitCloseEvent();
+        closed = true;
+        stopHeartbeat();
+    }
+
+    private void onHeartbeatTick() {
+        synchronized (this) {
+            if (closed || terminalEmitted) {
+                return;
+            }
+            if (emittedSinceLastTick) {
+                emittedSinceLastTick = false;
+                return;
+            }
+            emit(TaskEventType.HEARTBEAT, null, null, null);
+        }
+    }
+
+    private HeartbeatHandle startHeartbeat(HeartbeatScheduler scheduler, Duration interval) {
+        if (scheduler == null && interval == null) {
+            return null;
+        }
+
+        Objects.requireNonNull(scheduler, "heartbeatScheduler must not be null");
+        Objects.requireNonNull(interval, "heartbeatInterval must not be null");
+        requirePositive(interval);
+        return scheduler.schedule(this::onHeartbeatTick, interval);
+    }
+
+    private void emitCloseEvent() {
+        if (closeBehavior == CloseBehavior.IGNORE) {
+            return;
+        }
+
+        emit(closeTerminalType(), CLOSE_WITHOUT_TERMINAL_MESSAGE, null, null);
+        terminalEmitted = true;
+    }
+
+    private TaskEventType closeTerminalType() {
+        return switch (closeBehavior) {
+            case CANCELLED -> TaskEventType.CANCELLED;
+            case FAILED -> TaskEventType.FAILED;
+            case IGNORE -> throw new IllegalStateException("IGNORE has no terminal type");
+        };
+    }
+
+    private void emitTerminal(TaskEventType type, String message, Object payload) {
+        ensureActive();
+        emit(type, message, null, payload);
+        terminalEmitted = true;
+        stopHeartbeat();
+    }
+
+    private void emit(TaskEventType type, String message, Integer progress, Object payload) {
+        long sequenceNumber = nextSequenceNumber++;
+
+        TaskEvent event = TaskEvent.builder()
+                .eventId(descriptor.executionId() + "-" + sequenceNumber)
+                .taskName(descriptor.taskName())
+                .executionId(descriptor.executionId())
+                .correlationKey(descriptor.correlationKey())
+                .type(type)
+                .timestamp(clock.instant())
+                .sequenceNumber(sequenceNumber)
+                .message(message)
+                .progress(progress)
+                .payload(payload)
+                .build();
+
+        transport.publish(event);
+
+        if (type != TaskEventType.HEARTBEAT) {
+            emittedSinceLastTick = true;
+        }
+    }
+
+    private void stopHeartbeat() {
+        if (heartbeatHandle != null) {
+            heartbeatHandle.cancel();
+            heartbeatHandle = null;
+        }
+    }
+
+    private void ensureActive() {
+        if (terminalEmitted) {
+            throw new IllegalStateException(
+                    "Execution " + descriptor.executionId()
+                            + " already reached a terminal event");
+        }
+        if (closed) {
+            throw new IllegalStateException(
+                    "Reporter for execution " + descriptor.executionId() + " is already closed");
+        }
+    }
+
+    private static void requirePositive(Duration interval) {
+        if (interval.isZero() || interval.isNegative()) {
+            throw new IllegalArgumentException(
+                    "heartbeatInterval must be positive: " + interval);
+        }
+    }
+}

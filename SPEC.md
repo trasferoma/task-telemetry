@@ -599,19 +599,19 @@ Non introdurre dipendenze pesanti nella prima versione.
 
 ## 16. Compatibilità Java
 
-Target consigliato:
+Baseline scelta e implementata:
 
 ```text
-Java 17+
+Java 17
 ```
 
 Motivo:
 
 - Java 17 è baseline moderna comune nei backend;
-- permette API più pulite;
+- permette API più pulite (es. `record` per `TaskEvent`, `TaskExecutionDescriptor`);
 - evita di trascinarsi compatibilità troppo vecchia.
 
-Valutare Java 11 solo se si vuole massimizzare adozione aziendale, ma non è l'obiettivo iniziale.
+Il `pom.xml` usa `maven.compiler.release=17`. Java 11 resta una possibilità solo per massimizzare adozione aziendale, ma non è l'obiettivo.
 
 ---
 
@@ -904,14 +904,16 @@ Contromisura: builder esplicito, API diretta, zero annotazioni obbligatorie.
 
 ## 28. Domande aperte
 
-1. Nome definitivo del progetto.
-2. Default policy per `close()` senza evento terminale: `CANCELLED`, `FAILED` o `IGNORE`?
-3. Java baseline definitiva: 17 o 11?
-4. SLF4J nel core oppure error handler interno?
-5. Progress solo percentuale o anche `current/max/unit` dalla prima versione?
-6. `TaskTelemetry` deve essere istanza esplicita o anche singleton globale opzionale?
-7. Il listener deve ricevere eventi in modo sincrono o asincrono di default?
-8. Il transport in-memory deve mantenere ultimo stato noto in memoria oppure solo inoltro live?
+Risposte adottate nell'implementazione corrente:
+
+1. Nome del progetto: `task-telemetry` (confermato come nome di lavoro, non ancora deciso come definitivo).
+2. Default policy per `close()` senza evento terminale: **`CANCELLED`** (RISOLTA). Configurabile via `TaskReporter.CloseBehavior` (`CANCELLED`, `FAILED`, `IGNORE`).
+3. Java baseline: **17** (RISOLTA).
+4. SLF4J nel core oppure error handler interno: parzialmente aperta. `slf4j-api` è dipendenza **optional**; la publish-failure policy / error handler (§18) **non è ancora implementata**: l'`InMemoryTaskTransport` lascia propagare l'eccezione del listener al chiamante di `publish`.
+5. Progress: **solo percentuale intera 0-100** in v1 (RISOLTA per ora). Il modello `current/max/unit` resta futuro.
+6. `TaskTelemetry`: **istanza esplicita** creata via builder, nessun singleton globale (RISOLTA).
+7. Dispatch del listener: **sincrono** in v1 (RISOLTA). L'opzione asincrona resta futura.
+8. Transport in-memory: **solo inoltro live**, nessun ultimo stato mantenuto (RISOLTA).
 
 ---
 
@@ -919,13 +921,18 @@ Contromisura: builder esplicito, API diretta, zero annotazioni obbligatorie.
 
 Implementare in modo incrementale.
 
-Prima creare il progetto Maven multi-modulo con:
+Layout Maven previsto (multi-modulo):
 
 ```text
 task-telemetry-core
 task-telemetry-transport-inmemory
 task-telemetry-examples
 ```
+
+> Stato attuale: il progetto è ancora a **modulo singolo**. Tutto il core, il
+> transport in-memory e l'esempio vivono nel package `org.tasktelemetry`
+> (esempio in `org.tasktelemetry.example`). La conversione a multi-modulo resta
+> da fare.
 
 Non implementare subito socket, Redis, Spring o dashboard.
 
@@ -957,4 +964,67 @@ Non creare annotazioni.
 Non creare una dashboard.
 
 Non implementare un sistema di scheduling.
+
+---
+
+## 30. Stato di implementazione (giugno 2026)
+
+Baseline: Java 17, Maven, modulo singolo. Dipendenze di test: JUnit 5, AssertJ,
+Mockito, Instancio. Build con unit test (Surefire) e integration test `*IT`
+(Failsafe).
+
+### 30.1 Implementato
+
+- `TaskEventType`: i 9 tipi previsti, con `isTerminal()` per i terminali
+  (`COMPLETED`, `FAILED`, `CANCELLED`).
+- `TaskEvent`: record immutabile con builder e validazione (campi richiesti non
+  nulli/non vuoti, `sequenceNumber >= 0`, `progress` in 0-100 se presente).
+  Campi opzionali (`correlationKey`, `message`, `progress`, `payload`) nullabili.
+- `TaskExecutionDescriptor`: record (`taskName`, `executionId`, `correlationKey`)
+  con factory `of(taskName, executionId)`.
+- `TaskTransport`: SPI con `publish` / `subscribe` / `unsubscribe`.
+- `TaskListener`: interfaccia funzionale `onEvent(TaskEvent)`.
+- `InMemoryTaskTransport`: dispatch sincrono, thread-safe, nessuna
+  serializzazione, nessuna history; l'eccezione di un listener propaga al
+  chiamante di `publish`.
+- `TaskReporter` (`AutoCloseable`): emette `STARTED` alla creazione; API
+  `progress` / `info` / `warning` / `heartbeat` / `custom` e terminali
+  `completed` / `failed` / `cancelled`; genera `eventId`
+  (`executionId-sequenceNumber`), `timestamp` da `Clock` iniettabile e
+  `sequenceNumber` monotono; close policy via `CloseBehavior` (default
+  `CANCELLED`); dopo un terminale ogni emissione lancia `IllegalStateException`,
+  `close()` diventa idempotente. Thread-safe (emissione serializzata).
+- Heartbeat automatico: `HeartbeatScheduler` / `HeartbeatHandle` (astrazione
+  testabile) ed `ExecutorHeartbeatScheduler` (thread daemon
+  `task-telemetry-heartbeat-N`). Emette `HEARTBEAT` solo in caso di silenzio (gli
+  eventi normali sopprimono il battito successivo); si ferma su evento terminale
+  e su close.
+- `TaskTelemetry` + builder (`AutoCloseable`): `defaults()`, `start(taskName)` /
+  `start(taskName, correlationKey)`, `listen()`. Chiude lo scheduler solo se di
+  proprietà del runtime. `executionId` generato via `Supplier<String>`
+  (default UUID, sovrascrivibile per test deterministici).
+- Listener filtering (§19): `FilteringTaskListener` (filtri per `taskName`,
+  `executionId`, `correlationKey`, `eventType`, in AND; filtro nullo = match con
+  tutto), `ListenerRegistration` fluente, `ListenerHandle` per de-registrare.
+- Esempio Java puro: `org.tasktelemetry.example.PureJavaExample`.
+
+### 30.2 Non ancora implementato
+
+- Publish-failure policy / error handler interno (§18): oggi l'eccezione del
+  listener propaga, nessuna policy `IGNORE/LOG/THROW`.
+- Stato derivato lato listener `RUNNING/STALE/LOST` (§9.1).
+- Dispatch asincrono opzionale (§17): solo sincrono.
+- Modello progress ricco `current/max/unit` (§7.2): solo percentuale.
+- `failed(Throwable)`: il messaggio è `Throwable.toString()` e il throwable
+  finisce nel `payload`; nessuna opzione configurabile per lo stack trace (§7.7).
+- Layout Maven multi-modulo (§14).
+- Transport socket, Spring Boot starter e transport remoti (§24, §25).
+
+### 30.3 Note di design
+
+- `eventId` è deterministico (`executionId-sequenceNumber`), non un UUID a sé:
+  univoco dato un `executionId` univoco e comodo per i test. Reso eventualmente
+  configurabile in futuro.
+- Nessuna SPI di serializzazione: verrà introdotta solo con il transport socket
+  (§15).
 
