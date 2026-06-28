@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -11,7 +12,11 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +42,9 @@ class TaskTelemetryTest {
 
     @Mock
     private TaskListener listener;
+
+    @Mock
+    private TaskTelemetryErrorHandler errorHandler;
 
     @Test
     void startEmitsStartedWithGeneratedExecutionId() {
@@ -117,6 +125,71 @@ class TaskTelemetryTest {
                     .extracting(TaskEvent::type)
                     .contains(TaskEventType.HEARTBEAT);
         }
+    }
+
+    @Test
+    void builderErrorHandlerIsAppliedToReporters() {
+        doThrow(new RuntimeException("boom")).when(transport).publish(any());
+
+        try (TaskTelemetry telemetry = TaskTelemetry.builder()
+                .transport(transport)
+                .clock(Clock.fixed(FIXED_INSTANT, ZoneOffset.UTC))
+                .heartbeatInterval(null)
+                .errorHandler(errorHandler)
+                .executionIdGenerator(() -> "exec-fixed")
+                .build()) {
+
+            telemetry.start("IMPORT_CLIENTI");
+
+            verify(errorHandler).onPublishFailure(any(), any());
+        }
+    }
+
+    @Test
+    void builderLogPrefixIsAppliedToPublishFailureLogging() {
+        doThrow(new RuntimeException("boom")).when(transport).publish(any());
+
+        Logger logger = Logger.getLogger("org.tasktelemetry");
+        List<LogRecord> records = new ArrayList<>();
+        Handler capturingHandler = capturingHandler(records);
+        boolean useParentHandlers = logger.getUseParentHandlers();
+        logger.setUseParentHandlers(false);
+        logger.addHandler(capturingHandler);
+
+        try (TaskTelemetry telemetry = TaskTelemetry.builder()
+                .transport(transport)
+                .clock(Clock.fixed(FIXED_INSTANT, ZoneOffset.UTC))
+                .heartbeatInterval(null)
+                .logPrefix("custom-prefix >>")
+                .executionIdGenerator(() -> "exec-fixed")
+                .build()) {
+
+            telemetry.start("IMPORT_CLIENTI");
+        } finally {
+            logger.removeHandler(capturingHandler);
+            logger.setUseParentHandlers(useParentHandlers);
+        }
+
+        assertThat(records).anySatisfy(
+                record -> assertThat(record.getMessage()).startsWith("custom-prefix >> "));
+    }
+
+    private static Handler capturingHandler(List<LogRecord> records) {
+        return new Handler() {
+
+            @Override
+            public void publish(LogRecord record) {
+                records.add(record);
+            }
+
+            @Override
+            public void flush() {
+            }
+
+            @Override
+            public void close() {
+            }
+        };
     }
 
     private TaskTelemetry telemetry() {

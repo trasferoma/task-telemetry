@@ -573,14 +573,17 @@ Deve fornire:
 
 Il core deve avere dipendenze minime.
 
-Preferenza:
+Stato attuale delle dipendenze:
 
 ```text
-Java standard library
-SLF4J opzionale
-JUnit 5 per test
-AssertJ per test
+Runtime: nessuna (solo Java standard library; logging via java.util.logging)
+Test:    JUnit 5, AssertJ, Mockito, Instancio
 ```
+
+Nota: `slf4j-api` è stata rimossa dal `pom.xml` perché non usata. La
+publish-failure policy logga via l'astrazione `TaskTelemetryLogger` (default su
+`java.util.logging`), quindi il core non ha dipendenze runtime. Il prefisso dei
+messaggi è configurabile dal builder (§18.1).
 
 Serializzazione:
 
@@ -664,6 +667,25 @@ PublishFailurePolicy.THROW
 Default: `LOG` oppure `IGNORE` se non si vuole dipendere da logging.
 
 Per un core minimale senza SLF4J, si può usare un `TaskTelemetryErrorHandler` configurabile.
+
+### 18.1 Astrazione di logging e prefisso configurabile
+
+Il logging effettivo passa per un'astrazione `TaskTelemetryLogger`, così da poter
+integrare in futuro altri sistemi (Log4j, SLF4J) senza toccare il core. Il core
+fornisce l'implementazione di default `JulTaskTelemetryLogger`, basata su
+`java.util.logging`, quindi senza dipendenze runtime.
+
+Ogni messaggio di log della libreria è anteposto da un prefisso configurabile,
+così che tutte le righe condividano un marcatore riconoscibile. Il prefisso:
+
+- ha default `task-telemetry -`;
+- è configurabile dal builder via `TaskTelemetry.builder().logPrefix("...")`;
+- con stringa vuota disattiva il prefisso.
+
+Coerente con §11 e §27: la configurazione resta solo via builder Java, senza file
+di configurazione. Il prefisso vale per l'handler di logging di default; se si
+fornisce un `errorHandler` custom, il prefisso non viene applicato (responsabilità
+dell'handler fornito).
 
 ---
 
@@ -909,7 +931,7 @@ Risposte adottate nell'implementazione corrente:
 1. Nome del progetto: `task-telemetry` (confermato come nome di lavoro, non ancora deciso come definitivo).
 2. Default policy per `close()` senza evento terminale: **`CANCELLED`** (RISOLTA). Configurabile via `TaskReporter.CloseBehavior` (`CANCELLED`, `FAILED`, `IGNORE`).
 3. Java baseline: **17** (RISOLTA).
-4. SLF4J nel core oppure error handler interno: parzialmente aperta. `slf4j-api` è dipendenza **optional**; la publish-failure policy / error handler (§18) **non è ancora implementata**: l'`InMemoryTaskTransport` lascia propagare l'eccezione del listener al chiamante di `publish`.
+4. SLF4J nel core oppure error handler interno: **RISOLTA** con error handler interno. La publish-failure policy (§18) è implementata via `TaskTelemetryErrorHandler` (`ignore()`, `logging()` default, `rethrow()`). Il logging passa per l'astrazione `TaskTelemetryLogger` (default `JulTaskTelemetryLogger` su `java.util.logging`), pluggabile per Log4j/SLF4J futuri. Il prefisso dei messaggi è configurabile dal builder via `logPrefix(...)` (default `task-telemetry -`), senza file di configurazione (§18.1).
 5. Progress: **solo percentuale intera 0-100** in v1 (RISOLTA per ora). Il modello `current/max/unit` resta futuro.
 6. `TaskTelemetry`: **istanza esplicita** creata via builder, nessun singleton globale (RISOLTA).
 7. Dispatch del listener: **sincrono** in v1 (RISOLTA). L'opzione asincrona resta futura.
@@ -1011,12 +1033,18 @@ Mockito, Instancio. Build con unit test (Surefire) e integration test `*IT`
 - Listener filtering (§19): `FilteringTaskListener` (filtri per `taskName`,
   `executionId`, `correlationKey`, `eventType`, in AND; filtro nullo = match con
   tutto), `ListenerRegistration` fluente, `ListenerHandle` per de-registrare.
-- Esempio Java puro: `org.tasktelemetry.example.PureJavaExample`.
+- Publish-failure policy (§18): `TaskTelemetryErrorHandler` con `ignore()`,
+  `logging()` (default) e `rethrow()`. Il `TaskReporter` intercetta i fallimenti di
+  `publish` e li instrada all'handler; configurabile dal builder di `TaskTelemetry`.
+- Logging (§18.1): astrazione `TaskTelemetryLogger` (pluggabile per Log4j/SLF4J),
+  default `JulTaskTelemetryLogger` su `java.util.logging`. Prefisso dei messaggi
+  configurabile dal builder via `logPrefix(...)` (default `task-telemetry -`, stringa
+  vuota = nessun prefisso); applicato all'handler di logging di default. Nessun file
+  di configurazione.
+- Esempio Java puro: `org.tasktelemetry.example.simple.OnlyTaskExample`.
 
 ### 30.2 Non ancora implementato
 
-- Publish-failure policy / error handler interno (§18): oggi l'eccezione del
-  listener propaga, nessuna policy `IGNORE/LOG/THROW`.
 - Stato derivato lato listener `RUNNING/STALE/LOST` (§9.1).
 - Dispatch asincrono opzionale (§17): solo sincrono.
 - Modello progress ricco `current/max/unit` (§7.2): solo percentuale.

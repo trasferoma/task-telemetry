@@ -11,6 +11,7 @@ import org.tasktelemetry.event.TaskExecutionDescriptor;
 import org.tasktelemetry.heartbeat.ExecutorHeartbeatScheduler;
 import org.tasktelemetry.heartbeat.HeartbeatScheduler;
 import org.tasktelemetry.listener.ListenerRegistration;
+import org.tasktelemetry.logging.JulTaskTelemetryLogger;
 import org.tasktelemetry.transport.InMemoryTaskTransport;
 import org.tasktelemetry.transport.TaskTransport;
 
@@ -39,6 +40,7 @@ public final class TaskTelemetry implements AutoCloseable {
     private final Duration heartbeatInterval;
     private final ExecutorHeartbeatScheduler ownedScheduler;
     private final Supplier<String> executionIdGenerator;
+    private final TaskTelemetryErrorHandler errorHandler;
 
     private TaskTelemetry(
             TaskTransport transport,
@@ -47,7 +49,8 @@ public final class TaskTelemetry implements AutoCloseable {
             HeartbeatScheduler heartbeatScheduler,
             Duration heartbeatInterval,
             ExecutorHeartbeatScheduler ownedScheduler,
-            Supplier<String> executionIdGenerator) {
+            Supplier<String> executionIdGenerator,
+            TaskTelemetryErrorHandler errorHandler) {
 
         this.transport = transport;
         this.clock = clock;
@@ -56,6 +59,7 @@ public final class TaskTelemetry implements AutoCloseable {
         this.heartbeatInterval = heartbeatInterval;
         this.ownedScheduler = ownedScheduler;
         this.executionIdGenerator = executionIdGenerator;
+        this.errorHandler = errorHandler;
     }
 
     /**
@@ -97,7 +101,8 @@ public final class TaskTelemetry implements AutoCloseable {
                 new TaskExecutionDescriptor(taskName, executionId, correlationKey);
 
         return new TaskReporter(
-                descriptor, transport, clock, closeBehavior, heartbeatScheduler, heartbeatInterval);
+                descriptor, transport, clock, closeBehavior,
+                heartbeatScheduler, heartbeatInterval, errorHandler);
     }
 
     /**
@@ -128,6 +133,8 @@ public final class TaskTelemetry implements AutoCloseable {
         private HeartbeatScheduler heartbeatScheduler;
         private Duration heartbeatInterval = DEFAULT_HEARTBEAT_INTERVAL;
         private Supplier<String> executionIdGenerator = () -> UUID.randomUUID().toString();
+        private String logPrefix = JulTaskTelemetryLogger.DEFAULT_LOG_PREFIX;
+        private TaskTelemetryErrorHandler errorHandler;
 
         private Builder() {
         }
@@ -164,6 +171,25 @@ public final class TaskTelemetry implements AutoCloseable {
             return this;
         }
 
+        /**
+         * Sets the prefix prepended to every log message emitted by the default
+         * logging error handler. Pass an empty string for no prefix. Ignored when
+         * a custom {@link #errorHandler(TaskTelemetryErrorHandler)} is supplied.
+         *
+         * @param logPrefix the marker prepended to every log message, required
+         * @return this builder
+         */
+        public Builder logPrefix(String logPrefix) {
+            this.logPrefix = Objects.requireNonNull(logPrefix, "logPrefix must not be null");
+            return this;
+        }
+
+        public Builder errorHandler(TaskTelemetryErrorHandler errorHandler) {
+            this.errorHandler =
+                    Objects.requireNonNull(errorHandler, "errorHandler must not be null");
+            return this;
+        }
+
         public TaskTelemetry build() {
             TaskTransport resolvedTransport =
                     (transport != null) ? transport : new InMemoryTaskTransport();
@@ -172,6 +198,7 @@ public final class TaskTelemetry implements AutoCloseable {
             ExecutorHeartbeatScheduler ownedScheduler = resolveOwnedScheduler(heartbeatEnabled);
             HeartbeatScheduler resolvedScheduler = resolveScheduler(heartbeatEnabled, ownedScheduler);
             Duration resolvedInterval = heartbeatEnabled ? heartbeatInterval : null;
+            TaskTelemetryErrorHandler resolvedErrorHandler = resolveErrorHandler();
 
             return new TaskTelemetry(
                     resolvedTransport,
@@ -180,7 +207,12 @@ public final class TaskTelemetry implements AutoCloseable {
                     resolvedScheduler,
                     resolvedInterval,
                     ownedScheduler,
-                    executionIdGenerator);
+                    executionIdGenerator,
+                    resolvedErrorHandler);
+        }
+
+        private TaskTelemetryErrorHandler resolveErrorHandler() {
+            return Objects.requireNonNullElseGet(errorHandler, () -> TaskTelemetryErrorHandler.logging(logPrefix));
         }
 
         private ExecutorHeartbeatScheduler resolveOwnedScheduler(boolean heartbeatEnabled) {

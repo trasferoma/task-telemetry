@@ -30,7 +30,7 @@ Event flow — the task never knows who listens:
 Async task -> TaskReporter -> TaskEvent -> TaskTransport -> TaskListener(s)
 ```
 
-Core types (SPEC §6, §14.1, §22): `TaskTelemetry` + builder, `TaskReporter` (AutoCloseable, bound to one execution), `TaskEvent` (immutable), `TaskEventType`, `TaskListener` (functional), `TaskTransport` (pluggable SPI), execution descriptor, heartbeat scheduler, listener filtering, close policy.
+Core types (SPEC §6, §14.1, §22): `TaskTelemetry` + builder, `TaskReporter` (AutoCloseable, bound to one execution), `TaskEvent` (immutable), `TaskEventType`, `TaskListener` (functional), `TaskTransport` (pluggable SPI), execution descriptor, heartbeat scheduler, listener filtering, close policy, `TaskTelemetryErrorHandler` (publish-failure policy) and `TaskTelemetryLogger` (logging abstraction, default `JulTaskTelemetryLogger` over `java.util.logging`).
 
 Key model facts:
 - A **task** (`taskName`) is a type; each run is an **execution** (`executionId`, UUID). Optional `correlationKey` links to an application domain.
@@ -50,6 +50,7 @@ These are explicit decisions in `SPEC.md` (§4, §27) — do not violate them:
 - Delivery is **best-effort, live, non-persistent**: no exactly-once, no retry queues, no mandatory storage, no dashboard.
 - Heartbeat is automatic and tied to `TaskReporter` lifecycle: reporter open → execution alive; close → heartbeat stops. Default `close()` without a terminal event emits `CANCELLED`.
 - Keep dependencies minimal (JDK; JUnit 5 + AssertJ for tests). The in-memory transport must **not** serialize; a `TaskEventSerializer` SPI is introduced only when the socket transport arrives.
+- Logging goes through the `TaskTelemetryLogger` abstraction (pluggable for Log4j/SLF4J later); the core default is `JulTaskTelemetryLogger` (`java.util.logging`, no runtime dependency). The log message prefix is configurable **via the builder only** — `TaskTelemetry.builder().logPrefix("...")`, default `task-telemetry -`, empty string disables it — **no config file** (SPEC §18.1).
 
 ## Threading & testing requirements
 

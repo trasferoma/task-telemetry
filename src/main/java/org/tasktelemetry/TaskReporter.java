@@ -57,6 +57,7 @@ public final class TaskReporter implements AutoCloseable {
     private final TaskTransport transport;
     private final Clock clock;
     private final CloseBehavior closeBehavior;
+    private final TaskTelemetryErrorHandler errorHandler;
 
     private long nextSequenceNumber;
     private boolean terminalEmitted;
@@ -93,8 +94,7 @@ public final class TaskReporter implements AutoCloseable {
     }
 
     /**
-     * Creates a reporter, emits {@link TaskEventType#STARTED} and, when a
-     * scheduler and interval are supplied, starts the automatic heartbeat.
+     * Creates a reporter with the default logging error handler.
      *
      * @param descriptor         identity of the execution, required
      * @param transport          transport used to publish events, required
@@ -111,10 +111,36 @@ public final class TaskReporter implements AutoCloseable {
             HeartbeatScheduler heartbeatScheduler,
             Duration heartbeatInterval) {
 
+        this(descriptor, transport, clock, closeBehavior, heartbeatScheduler, heartbeatInterval,
+                TaskTelemetryErrorHandler.logging());
+    }
+
+    /**
+     * Creates a reporter, emits {@link TaskEventType#STARTED} and, when a
+     * scheduler and interval are supplied, starts the automatic heartbeat.
+     *
+     * @param descriptor         identity of the execution, required
+     * @param transport          transport used to publish events, required
+     * @param clock              clock used to timestamp events, required
+     * @param closeBehavior      action taken on close without a terminal event, required
+     * @param heartbeatScheduler scheduler driving the heartbeat, or {@code null} to disable it
+     * @param heartbeatInterval  delay between heartbeats, or {@code null} to disable it
+     * @param errorHandler       handler invoked when publishing an event fails, required
+     */
+    public TaskReporter(
+            TaskExecutionDescriptor descriptor,
+            TaskTransport transport,
+            Clock clock,
+            CloseBehavior closeBehavior,
+            HeartbeatScheduler heartbeatScheduler,
+            Duration heartbeatInterval,
+            TaskTelemetryErrorHandler errorHandler) {
+
         this.descriptor = Objects.requireNonNull(descriptor, "descriptor must not be null");
         this.transport = Objects.requireNonNull(transport, "transport must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
         this.closeBehavior = Objects.requireNonNull(closeBehavior, "closeBehavior must not be null");
+        this.errorHandler = Objects.requireNonNull(errorHandler, "errorHandler must not be null");
 
         emit(TaskEventType.STARTED, null, null, null);
         this.heartbeatHandle = startHeartbeat(heartbeatScheduler, heartbeatInterval);
@@ -284,10 +310,18 @@ public final class TaskReporter implements AutoCloseable {
                 .payload(payload)
                 .build();
 
-        transport.publish(event);
+        publish(event);
 
         if (type != TaskEventType.HEARTBEAT) {
             emittedSinceLastTick = true;
+        }
+    }
+
+    private void publish(TaskEvent event) {
+        try {
+            transport.publish(event);
+        } catch (RuntimeException error) {
+            errorHandler.onPublishFailure(event, error);
         }
     }
 

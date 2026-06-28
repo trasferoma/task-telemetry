@@ -1,4 +1,4 @@
-package org.tasktelemetry.example;
+package org.tasktelemetry.example.simple;
 
 import org.tasktelemetry.TaskReporter;
 import org.tasktelemetry.TaskTelemetry;
@@ -9,19 +9,19 @@ import org.tasktelemetry.event.TaskEvent;
  * in-memory transport, a filtered listener that prints events, and a simulated
  * import that reports progress through a {@link TaskReporter}.
  */
-public final class PureJavaExample {
+public final class OnlyTaskExample {
 
     private static final String TASK_NAME = "IMPORT_CLIENTI";
     private static final String INPUT_FILE = "file-import-clienti-2026.csv";
 
-    private PureJavaExample() {
+    private OnlyTaskExample() {
     }
 
     public static void main(String[] args) {
         try (TaskTelemetry telemetry = TaskTelemetry.defaults()) {
             telemetry.listen()
                     .taskName(TASK_NAME)
-                    .onEvent(PureJavaExample::printEvent)
+                    .onEvent(org.tasktelemetry.example.simple.OnlyTaskExample::printEvent)
                     .start();
 
             runImport(telemetry);
