@@ -1051,6 +1051,10 @@ Mockito, Instancio. Build con unit test (Surefire) e integration test `*IT`
   registra il listener filtrato e blocca fino al primo evento corrispondente
   (`CountDownLatch`), poi continua a consegnare il live; in timeout fa unsubscribe e
   lancia `TaskAwaitTimeoutException`. Transport-agnostica.
+- Helper consumatore di alto livello (§32): `TaskWatcher`
+  (package `org.tasktelemetry.watch`) che incapsula subscribe-per-nome, attesa,
+  monitor di liveness, cattura `executionId` e rilevamento del terminale dietro
+  tre metodi: `onProgress`, `awaitStart`, `awaitCompletion`.
 - Esempio Java puro: `org.tasktelemetry.example.simple.OnlyTaskExample`.
 
 ### 30.2 Non ancora implementato
@@ -1171,3 +1175,59 @@ solo fino al primo arrivo. In timeout esegue l'unsubscribe e lancia.
 - timeout deterministico con attese brevi quando nessun evento arriva;
 - nessuna dipendenza dal transport concreto (verifica sull'in-memory).
 
+
+---
+
+## 32. TaskWatcher: API di alto livello per il consumatore
+
+> Stato: **implementata** (`org.tasktelemetry.watch.TaskWatcher`). Capability di
+> **core**: è il pattern che ogni consumatore rifarebbe identico.
+
+### 32.1 Motivazione
+
+Il consumatore tipico (es. una UI che mostra una barra di avanzamento) non vuole
+occuparsi di telemetria: vuole sapere se il task è in corso, reagire ai progress e
+sapere quando finisce. Senza un helper deve mettere insieme a mano `listen()`,
+`awaitStart`, un `TaskHeartbeatMonitor`, la cattura dell'`executionId`, un
+`CountDownLatch` sul terminale e un loop di liveness. `TaskWatcher` incapsula
+tutto questo.
+
+### 32.2 API
+
+```java
+try (TaskWatcher watcher = new TaskWatcher(transport, "FILE_UPLOAD")) {
+    watcher.onProgress(percent -> progressBar.setValue(percent));
+    if (!watcher.awaitStart(Duration.ofSeconds(5))) {
+        return; // nessun task in corso entro il timeout
+    }
+    TaskExecutionStatus status = watcher.awaitCompletion();
+    // COMPLETED / FAILED / CANCELLED / LOST
+}
+```
+
+- costruttori: `(TaskTransport, taskName)` con soglie di default (stale 5s, lost
+  15s) e `(TaskTransport, taskName, staleAfter, lostAfter)`;
+- `onProgress(IntConsumer)`: callback con la percentuale di ogni evento progress;
+- `awaitStart(Duration)`: `true` se il task è in corso, `false` se non compare
+  entro il timeout (nessuna eccezione da gestire);
+- `awaitCompletion()`: blocca fino al terminale **o** finché il task è dato per
+  perso, e ritorna lo stato finale (`COMPLETED/FAILED/CANCELLED/LOST`);
+- `AutoCloseable`: `close()` de-registra il listener.
+
+### 32.3 Note di design
+
+- Dipende solo da un `TaskTransport`: il consumatore **non** ha bisogno di un
+  proprio `TaskTelemetry`.
+- La liveness è interna: il consumatore non controlla più gli heartbeat a mano. Se
+  il cuore si ferma, `awaitCompletion()` ritorna `LOST` invece di bloccarsi per
+  sempre; un task vivo ma silenzioso resta `RUNNING` grazie agli heartbeat.
+- Compone `ListenerRegistration.awaitStart` (§31) e `TaskHeartbeatMonitor` (§9.1);
+  resta transport-agnostica.
+
+### 32.4 Testabilità
+
+- unit deterministici tramite un transport di test che **ripete gli eventi in modo
+  sincrono al subscribe**, così i metodi bloccanti si risolvono su un singolo
+  thread senza tempo reale (API, progress, terminali, unsubscribe, guard);
+- i casi dipendenti dal tempo (timeout, `LOST`) sono coperti dagli integration
+  test (`UploadScenarioIT`).
