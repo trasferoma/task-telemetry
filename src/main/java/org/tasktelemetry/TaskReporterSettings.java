@@ -19,15 +19,13 @@ import org.tasktelemetry.heartbeat.HeartbeatScheduler;
  * @param heartbeatScheduler scheduler driving the heartbeat, or {@code null} to disable it
  * @param heartbeatInterval  delay between heartbeats, or {@code null} to disable it
  * @param errorHandler       handler invoked when publishing an event fails, required
- * @param includeStackTrace  whether {@code failed} captures the throwable stack trace
  */
 public record TaskReporterSettings(
         Clock clock,
         TaskReporter.CloseBehavior closeBehavior,
         HeartbeatScheduler heartbeatScheduler,
         Duration heartbeatInterval,
-        TaskTelemetryErrorHandler errorHandler,
-        boolean includeStackTrace) {
+        TaskTelemetryErrorHandler errorHandler) {
 
     public TaskReporterSettings {
         Objects.requireNonNull(clock, "clock must not be null");
@@ -37,7 +35,7 @@ public record TaskReporterSettings(
 
     /**
      * Returns the default settings: system UTC clock, {@code CANCELLED} close
-     * behavior, no heartbeat, logging error handler, stack trace captured.
+     * behavior, no heartbeat, logging error handler.
      *
      * @return the default settings
      */
@@ -47,32 +45,26 @@ public record TaskReporterSettings(
                 TaskReporter.CloseBehavior.CANCELLED,
                 null,
                 null,
-                TaskTelemetryErrorHandler.logging(),
-                true);
+                TaskTelemetryErrorHandler.logging());
     }
 
     public TaskReporterSettings withClock(Clock clock) {
         return new TaskReporterSettings(
-                clock, closeBehavior, heartbeatScheduler, heartbeatInterval, errorHandler, includeStackTrace);
+                clock, closeBehavior, heartbeatScheduler, heartbeatInterval, errorHandler);
     }
 
     public TaskReporterSettings withCloseBehavior(TaskReporter.CloseBehavior closeBehavior) {
         return new TaskReporterSettings(
-                clock, closeBehavior, heartbeatScheduler, heartbeatInterval, errorHandler, includeStackTrace);
+                clock, closeBehavior, heartbeatScheduler, heartbeatInterval, errorHandler);
     }
 
     public TaskReporterSettings withHeartbeat(HeartbeatScheduler heartbeatScheduler, Duration heartbeatInterval) {
         return new TaskReporterSettings(
-                clock, closeBehavior, heartbeatScheduler, heartbeatInterval, errorHandler, includeStackTrace);
+                clock, closeBehavior, heartbeatScheduler, heartbeatInterval, errorHandler);
     }
 
     public TaskReporterSettings withErrorHandler(TaskTelemetryErrorHandler errorHandler) {
         return new TaskReporterSettings(
-                clock, closeBehavior, heartbeatScheduler, heartbeatInterval, errorHandler, includeStackTrace);
-    }
-
-    public TaskReporterSettings withIncludeStackTrace(boolean includeStackTrace) {
-        return new TaskReporterSettings(
-                clock, closeBehavior, heartbeatScheduler, heartbeatInterval, errorHandler, includeStackTrace);
+                clock, closeBehavior, heartbeatScheduler, heartbeatInterval, errorHandler);
     }
 }

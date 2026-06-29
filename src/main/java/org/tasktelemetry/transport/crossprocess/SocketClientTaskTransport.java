@@ -47,8 +47,6 @@ import org.tasktelemetry.transport.TaskTransport;
  * <ul>
  *   <li>No auto-reconnect: if the server closes or the connection is lost, this
  *       client does not reconnect automatically.</li>
- *   <li>The {@code payload} field is not transmitted; it will be {@code null}
- *       on the receiving side.</li>
  *   <li>Events published before this client connected are not replayed.</li>
  * </ul>
  *

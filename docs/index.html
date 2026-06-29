@@ -426,7 +426,6 @@
       <ul>
         <li><code>progress(int percentuale, String messaggio)</code> — avanzamento 0–100.</li>
         <li><code>info(String)</code> / <code>warning(String)</code> — messaggi.</li>
-        <li><code>custom(String messaggio, Object payload)</code> — evento applicativo con dato a piacere.</li>
         <li><code>completed(String)</code> — fine con successo.</li>
         <li><code>failed(Throwable)</code> — fine con errore.</li>
         <li><code>cancelled(String)</code> — interruzione volontaria.</li>
@@ -468,9 +467,9 @@
 }</pre>
       </div>
       <p>
-        Con <code>failed(eccezione)</code> l'evento <code>FAILED</code> porta nel suo <em>payload</em> un
-        <code>TaskFailure</code> con <code>exceptionType</code>, <code>message</code> e (configurabile)
-        <code>stackTrace</code>.
+        Con <code>failed(eccezione)</code> l'evento <code>FAILED</code> porta come <code>message</code> il
+        testo di <code>eccezione.toString()</code> (tipo dell'eccezione + messaggio). Non porta un oggetto
+        strutturato né lo stack trace: così il dato arriva identico sia nella stessa JVM sia tra processi.
       </p>
       <div class="note">
         <strong>Chiusura senza terminale.</strong> Se chiudi il reporter (es. fine del
@@ -504,7 +503,7 @@ handle.stop();</pre>
         Ogni evento è un <code>TaskEvent</code> con: <code>taskName</code>, <code>executionId</code>,
         <code>correlationKey</code>, <code>type</code>, <code>timestamp</code>,
         <code>sequenceNumber</code> (numero crescente per rilevare buchi), e i campi opzionali
-        <code>message</code>, <code>progress</code>, <code>payload</code>.
+        <code>message</code> e <code>progress</code>.
       </p>
     </section>
 
@@ -644,7 +643,6 @@ handle.stop();</pre>
             <tr><td><code>transport(...)</code></td><td>Il "tubo" degli eventi</td><td>in memoria</td></tr>
             <tr><td><code>heartbeatInterval(Duration)</code></td><td>Frequenza del battito (<code>null</code> = disattivato)</td><td>5 s</td></tr>
             <tr><td><code>closeBehavior(...)</code></td><td>Evento alla chiusura senza terminale: <code>CANCELLED</code>, <code>FAILED</code> o <code>IGNORE</code></td><td>CANCELLED</td></tr>
-            <tr><td><code>includeFailureStackTrace(boolean)</code></td><td>Includere lo stack trace nei <code>FAILED</code></td><td>true</td></tr>
             <tr><td><code>logPrefix(String)</code></td><td>Prefisso dei messaggi di log interni</td><td><code>task-telemetry -</code></td></tr>
             <tr><td><code>errorHandler(...)</code></td><td>Cosa fare se la consegna di un evento fallisce</td><td>logga</td></tr>
             <tr><td><code>executionIdGenerator(...)</code></td><td>Come generare l'<code>executionId</code></td><td>UUID</td></tr>
@@ -682,15 +680,15 @@ handle.stop();</pre>
             <tr><td><code>WARNING</code></td><td><code>warning(...)</code></td><td><code>message</code></td></tr>
             <tr><td><code>HEARTBEAT</code></td><td>Automatico, durante il silenzio</td><td>—</td></tr>
             <tr><td><code>COMPLETED</code></td><td><code>completed(...)</code></td><td><code>message</code></td></tr>
-            <tr><td><code>FAILED</code></td><td><code>failed(...)</code></td><td><code>message</code> + payload <code>TaskFailure</code></td></tr>
+            <tr><td><code>FAILED</code></td><td><code>failed(...)</code></td><td><code>message</code> (<code>Throwable.toString()</code>)</td></tr>
             <tr><td><code>CANCELLED</code></td><td><code>cancelled(...)</code> o chiusura</td><td><code>message</code></td></tr>
-            <tr><td><code>CUSTOM</code></td><td><code>custom(...)</code></td><td><code>message</code> + <code>payload</code> a piacere</td></tr>
           </tbody>
         </table>
       </div>
       <div class="note">
-        <strong>Tra processi diversi</strong> il <code>payload</code> non viene trasmesso (viaggiano i campi
-        scalari + <code>message</code> + <code>progress</code>). Nella stessa JVM, invece, il payload arriva integro.
+        Ogni evento porta solo dati scalari più <code>message</code> e <code>progress</code>: viaggiano
+        identici nella stessa JVM e tra processi diversi. Per inviare dati strutturati a chi osserva,
+        mettili nel <code>message</code> (es. una stringa JSON che il consumatore interpreta).
       </div>
     </section>
 

@@ -7,7 +7,6 @@ import java.util.Objects;
 import org.tasktelemetry.event.TaskEvent;
 import org.tasktelemetry.event.TaskEventType;
 import org.tasktelemetry.event.TaskExecutionDescriptor;
-import org.tasktelemetry.event.TaskFailure;
 import org.tasktelemetry.heartbeat.HeartbeatHandle;
 import org.tasktelemetry.heartbeat.HeartbeatScheduler;
 import org.tasktelemetry.transport.TaskTransport;
@@ -59,7 +58,6 @@ public final class TaskReporter implements AutoCloseable {
     private final Clock clock;
     private final CloseBehavior closeBehavior;
     private final TaskTelemetryErrorHandler errorHandler;
-    private final boolean includeStackTrace;
 
     private long nextSequenceNumber;
     private boolean terminalEmitted;
@@ -97,9 +95,8 @@ public final class TaskReporter implements AutoCloseable {
         this.clock = settings.clock();
         this.closeBehavior = settings.closeBehavior();
         this.errorHandler = settings.errorHandler();
-        this.includeStackTrace = settings.includeStackTrace();
 
-        emit(TaskEventType.STARTED, null, null, null);
+        emit(TaskEventType.STARTED, null, null);
         this.heartbeatHandle = startHeartbeat(settings.heartbeatScheduler(), settings.heartbeatInterval());
     }
 
@@ -120,7 +117,7 @@ public final class TaskReporter implements AutoCloseable {
      */
     public synchronized void progress(int percentage, String message) {
         ensureActive();
-        emit(TaskEventType.PROGRESS, message, percentage, null);
+        emit(TaskEventType.PROGRESS, message, percentage);
     }
 
     /**
@@ -130,7 +127,7 @@ public final class TaskReporter implements AutoCloseable {
      */
     public synchronized void info(String message) {
         ensureActive();
-        emit(TaskEventType.INFO, message, null, null);
+        emit(TaskEventType.INFO, message, null);
     }
 
     /**
@@ -140,7 +137,7 @@ public final class TaskReporter implements AutoCloseable {
      */
     public synchronized void warning(String message) {
         ensureActive();
-        emit(TaskEventType.WARNING, message, null, null);
+        emit(TaskEventType.WARNING, message, null);
     }
 
     /**
@@ -148,18 +145,7 @@ public final class TaskReporter implements AutoCloseable {
      */
     public synchronized void heartbeat() {
         ensureActive();
-        emit(TaskEventType.HEARTBEAT, null, null, null);
-    }
-
-    /**
-     * Emits a custom application event.
-     *
-     * @param message optional message, may be {@code null}
-     * @param payload optional payload, may be {@code null}
-     */
-    public synchronized void custom(String message, Object payload) {
-        ensureActive();
-        emit(TaskEventType.CUSTOM, message, null, payload);
+        emit(TaskEventType.HEARTBEAT, null, null);
     }
 
     /**
@@ -168,19 +154,17 @@ public final class TaskReporter implements AutoCloseable {
      * @param message optional message, may be {@code null}
      */
     public synchronized void completed(String message) {
-        emitTerminal(TaskEventType.COMPLETED, message, null);
+        emitTerminal(TaskEventType.COMPLETED, message);
     }
 
     /**
-     * Emits a terminal failure event carrying the error.
+     * Emits a terminal failure event carrying the error message.
      *
      * @param error the cause of the failure, required
      */
     public synchronized void failed(Throwable error) {
         Objects.requireNonNull(error, "error must not be null");
-
-        TaskFailure failure = TaskFailure.from(error, includeStackTrace);
-        emitTerminal(TaskEventType.FAILED, error.toString(), failure);
+        emitTerminal(TaskEventType.FAILED, error.toString());
     }
 
     /**
@@ -189,7 +173,7 @@ public final class TaskReporter implements AutoCloseable {
      * @param message optional message, may be {@code null}
      */
     public synchronized void cancelled(String message) {
-        emitTerminal(TaskEventType.CANCELLED, message, null);
+        emitTerminal(TaskEventType.CANCELLED, message);
     }
 
     @Override
@@ -214,7 +198,7 @@ public final class TaskReporter implements AutoCloseable {
                 emittedSinceLastTick = false;
                 return;
             }
-            emit(TaskEventType.HEARTBEAT, null, null, null);
+            emit(TaskEventType.HEARTBEAT, null, null);
         }
     }
 
@@ -234,7 +218,7 @@ public final class TaskReporter implements AutoCloseable {
             return;
         }
 
-        emit(closeTerminalType(), CLOSE_WITHOUT_TERMINAL_MESSAGE, null, null);
+        emit(closeTerminalType(), CLOSE_WITHOUT_TERMINAL_MESSAGE, null);
         terminalEmitted = true;
     }
 
@@ -246,14 +230,14 @@ public final class TaskReporter implements AutoCloseable {
         };
     }
 
-    private void emitTerminal(TaskEventType type, String message, Object payload) {
+    private void emitTerminal(TaskEventType type, String message) {
         ensureActive();
-        emit(type, message, null, payload);
+        emit(type, message, null);
         terminalEmitted = true;
         stopHeartbeat();
     }
 
-    private void emit(TaskEventType type, String message, Integer progress, Object payload) {
+    private void emit(TaskEventType type, String message, Integer progress) {
         long sequenceNumber = nextSequenceNumber++;
 
         TaskEvent event = TaskEvent.builder()
@@ -266,7 +250,6 @@ public final class TaskReporter implements AutoCloseable {
                 .sequenceNumber(sequenceNumber)
                 .message(message)
                 .progress(progress)
-                .payload(payload)
                 .build();
 
         publish(event);

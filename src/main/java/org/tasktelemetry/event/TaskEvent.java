@@ -8,8 +8,8 @@ import java.util.Objects;
  *
  * <p>Required fields: {@code eventId}, {@code taskName}, {@code executionId},
  * {@code type}, {@code timestamp} and {@code sequenceNumber}. The remaining
- * fields ({@code correlationKey}, {@code message}, {@code progress} and
- * {@code payload}) are optional and may be {@code null}.
+ * fields ({@code correlationKey}, {@code message} and {@code progress}) are
+ * optional and may be {@code null}.
  *
  * <p>The library generates {@code eventId}, {@code timestamp} and
  * {@code sequenceNumber}; this type only carries the values and validates them.
@@ -25,7 +25,6 @@ import java.util.Objects;
  * @param message        optional human-readable message, may be {@code null}
  * @param progress       optional completion percentage ({@code 0}-{@code 100}),
  *                       may be {@code null}
- * @param payload        optional application payload, may be {@code null}
  */
 public record TaskEvent(
         String eventId,
@@ -36,8 +35,7 @@ public record TaskEvent(
         Instant timestamp,
         long sequenceNumber,
         String message,
-        Integer progress,
-        Object payload) {
+        Integer progress) {
 
     private static final int MIN_PROGRESS = 0;
     private static final int MAX_PROGRESS = 100;
@@ -101,7 +99,6 @@ public record TaskEvent(
         private long sequenceNumber;
         private String message;
         private Integer progress;
-        private Object payload;
 
         private Builder() {
         }
@@ -151,11 +148,6 @@ public record TaskEvent(
             return this;
         }
 
-        public Builder payload(Object payload) {
-            this.payload = payload;
-            return this;
-        }
-
         public TaskEvent build() {
             return new TaskEvent(
                     eventId,
@@ -166,8 +158,7 @@ public record TaskEvent(
                     timestamp,
                     sequenceNumber,
                     message,
-                    progress,
-                    payload);
+                    progress);
         }
     }
 }

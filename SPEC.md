@@ -180,7 +180,6 @@ HEARTBEAT
 COMPLETED
 FAILED
 CANCELLED
-CUSTOM
 ```
 
 ### 7.1 STARTED
@@ -231,23 +230,17 @@ Evento terminale di successo.
 
 Evento terminale di errore.
 
-Deve poter contenere almeno:
-
-- messaggio di errore;
-- tipo eccezione;
-- stack trace opzionale e configurabile.
+Porta il messaggio dell'errore, ottenuto da `Throwable.toString()` (quindi
+include tipo eccezione e messaggio). Per scelta esplicita non porta un oggetto
+strutturato di dettaglio né lo stack trace: il dato deve attraversare in modo
+uniforme qualunque transport (vedi §8 e §24), e un payload-oggetto viaggiava solo
+in-memory.
 
 ### 7.8 CANCELLED
 
 Evento terminale per task interrotto volontariamente.
 
 Nella prima versione può essere presente solo come tipo evento, senza implementare un meccanismo di cancellazione remota.
-
-### 7.9 CUSTOM
-
-Evento custom applicativo. Deve permettere payload opzionale.
-
-Attenzione: il payload custom non deve trasformare la libreria in un message broker generalista.
 
 ---
 
@@ -265,7 +258,6 @@ timestamp
 sequenceNumber
 message opzionale
 progress opzionale
-payload opzionale
 ```
 
 Note:
@@ -274,6 +266,10 @@ Note:
 - `executionId` deve identificare la singola esecuzione del task.
 - `sequenceNumber` deve crescere per ogni execution e aiuta i listener a rilevare buchi o riordini.
 - `timestamp` deve essere generato dalla libreria.
+- L'evento porta solo dati scalari più `message` e `progress`. Non esiste un
+  campo `payload` di tipo `Object`: un payload arbitrario viaggiava solo
+  in-memory e veniva scartato dal transport cross-process, quindi è stato rimosso
+  per mantenere il modello uniforme su qualunque transport.
 
 ---
 
@@ -952,11 +948,13 @@ Mockito, Instancio. Build con unit test (Surefire) e integration test `*IT`
 
 ### 30.1 Implementato
 
-- `TaskEventType`: i 9 tipi previsti, con `isTerminal()` per i terminali
+- `TaskEventType`: gli 8 tipi previsti, con `isTerminal()` per i terminali
   (`COMPLETED`, `FAILED`, `CANCELLED`).
 - `TaskEvent`: record immutabile con builder e validazione (campi richiesti non
   nulli/non vuoti, `sequenceNumber >= 0`, `progress` in 0-100 se presente).
-  Campi opzionali (`correlationKey`, `message`, `progress`, `payload`) nullabili.
+  Campi opzionali (`correlationKey`, `message`, `progress`) nullabili. Nessun
+  campo `payload` di tipo `Object` (vedi §8): porta solo dati scalari, `message`
+  e `progress`, così il modello è uniforme su qualunque transport.
 - `TaskExecutionDescriptor`: record (`taskName`, `executionId`, `correlationKey`)
   con factory `of(taskName, executionId)`.
 - `TaskTransport`: SPI con `publish` / `subscribe` / `unsubscribe`.
@@ -965,7 +963,7 @@ Mockito, Instancio. Build con unit test (Surefire) e integration test `*IT`
   serializzazione, nessuna history; l'eccezione di un listener propaga al
   chiamante di `publish`.
 - `TaskReporter` (`AutoCloseable`): emette `STARTED` alla creazione; API
-  `progress` / `info` / `warning` / `heartbeat` / `custom` e terminali
+  `progress` / `info` / `warning` / `heartbeat` e terminali
   `completed` / `failed` / `cancelled`; genera `eventId`
   (`executionId-sequenceNumber`), `timestamp` da `Clock` iniettabile e
   `sequenceNumber` monotono; close policy via `CloseBehavior` (default
@@ -986,11 +984,10 @@ Mockito, Instancio. Build con unit test (Surefire) e integration test `*IT`
 - Publish-failure policy (§18): `TaskTelemetryErrorHandler` con `ignore()`,
   `logging()` (default) e `rethrow()`. Il `TaskReporter` intercetta i fallimenti di
   `publish` e li instrada all'handler; configurabile dal builder di `TaskTelemetry`.
-- FAILED ricco (§7.7): `failed(Throwable)` mette nel `payload` un record
-  `TaskFailure` (`exceptionType`, `message`, `stackTrace`) con sole stringhe
-  (transport-friendly); il `message` dell'evento resta `Throwable.toString()`. Lo
-  stack trace è configurabile dal builder via `includeFailureStackTrace(boolean)`
-  (default `true`).
+- FAILED (§7.7): `failed(Throwable)` emette un evento terminale `FAILED` il cui
+  `message` è `Throwable.toString()` (tipo eccezione + messaggio). Non porta un
+  oggetto strutturato né lo stack trace: il dato attraversa identico qualunque
+  transport.
 - Logging (§18.1): astrazione `TaskTelemetryLogger` (pluggabile per Log4j/SLF4J),
   default `JulTaskTelemetryLogger` su `java.util.logging`. Prefisso dei messaggi
   configurabile dal builder via `logPrefix(...)` (default `task-telemetry -`, stringa
@@ -1017,9 +1014,9 @@ Mockito, Instancio. Build con unit test (Surefire) e integration test `*IT`
   connessi) e il client si connette (`SocketClientTaskTransport`) ricevendo gli
   eventi dal momento della connessione. SPI `TaskEventSerializer` + default
   `TextTaskEventSerializer` (formato a righe, campi Base64). Best-effort, niente
-  replay, niente auto-reconnect in v1; il `payload` **non** viaggia sul filo
-  (passano i campi scalari + message + progress). Il client deve connettersi a un
-  task già avviato.
+  replay, niente auto-reconnect in v1; sul filo passano i campi scalari + message
+  + progress (l'evento non ha più un payload-oggetto, vedi §8). Il client deve
+  connettersi a un task già avviato.
 - Esempio Java puro: `org.tasktelemetry.example.simple.OnlyTaskExample`.
 
 ### 30.2 Non ancora implementato
@@ -1032,7 +1029,7 @@ Mockito, Instancio. Build con unit test (Surefire) e integration test `*IT`
 
 - `TaskReporterSettings` (record immutabile con `defaults()` + metodi `with...`)
   raccoglie le opzioni di configurazione del reporter (clock, closeBehavior,
-  heartbeat, errorHandler, includeStackTrace). `TaskReporter` ha così due soli
+  heartbeat, errorHandler). `TaskReporter` ha così due soli
   costruttori (`(descriptor, transport)` e `(descriptor, transport, settings)`) e
   `TaskTelemetry` un costruttore a 4 parametri; le validazioni dei campi
   obbligatori sono centralizzate nel settings.

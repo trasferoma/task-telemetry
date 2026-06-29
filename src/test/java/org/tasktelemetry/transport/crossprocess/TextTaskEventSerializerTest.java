@@ -28,7 +28,6 @@ class TextTaskEventSerializerTest {
                 .sequenceNumber(7)
                 .message("Half of the file processed")
                 .progress(50)
-                .payload("this payload should be dropped")
                 .build();
 
         String line = serializer.serialize(original);
@@ -44,8 +43,6 @@ class TextTaskEventSerializerTest {
         assertThat(restored.sequenceNumber()).isEqualTo(original.sequenceNumber());
         assertThat(restored.message()).isEqualTo(original.message());
         assertThat(restored.progress()).isEqualTo(original.progress());
-        // payload is not transmitted: always null after deserialization
-        assertThat(restored.payload()).isNull();
     }
 
     @Test

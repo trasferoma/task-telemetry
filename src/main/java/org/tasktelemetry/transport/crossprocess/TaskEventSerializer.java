@@ -8,9 +8,7 @@ import org.tasktelemetry.event.TaskEvent;
  * <p>Implementations must guarantee:
  * <ul>
  *   <li>One event per line — the serialized form must not contain embedded newlines.</li>
- *   <li>Round-trip fidelity for all transmitted fields. The {@code payload} field
- *       is not part of the wire format (v1 constraint) and will always be
- *       {@code null} after deserialization.</li>
+ *   <li>Round-trip fidelity for all transmitted fields.</li>
  * </ul>
  */
 public interface TaskEventSerializer {
@@ -25,9 +23,6 @@ public interface TaskEventSerializer {
 
     /**
      * Decodes a single text line back to a {@link TaskEvent}.
-     *
-     * <p>The returned event will have a {@code null} payload regardless of
-     * what was in the original event before serialization.
      *
      * @param line the line to decode, never {@code null}
      * @return the reconstructed event, never {@code null}

@@ -15,7 +15,7 @@ class TaskEventTypeTest {
     }
 
     @ParameterizedTest
-    @EnumSource(names = {"STARTED", "PROGRESS", "INFO", "WARNING", "HEARTBEAT", "CUSTOM"})
+    @EnumSource(names = {"STARTED", "PROGRESS", "INFO", "WARNING", "HEARTBEAT"})
     void nonTerminalTypes_areNotTerminal(TaskEventType type) {
         assertThat(type.isTerminal()).isFalse();
     }
@@ -30,7 +30,6 @@ class TaskEventTypeTest {
                 TaskEventType.HEARTBEAT,
                 TaskEventType.COMPLETED,
                 TaskEventType.FAILED,
-                TaskEventType.CANCELLED,
-                TaskEventType.CUSTOM);
+                TaskEventType.CANCELLED);
     }
 }

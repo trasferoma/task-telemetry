@@ -34,8 +34,8 @@ Core types (SPEC §6, §14.1, §22): `TaskTelemetry` + builder, `TaskReporter` (
 
 Key model facts:
 - A **task** (`taskName`) is a type; each run is an **execution** (`executionId`, UUID). Optional `correlationKey` links to an application domain.
-- `TaskEvent` carries at least: eventId, taskName, executionId, optional correlationKey, eventType, timestamp (library-generated), sequenceNumber (monotonic per execution), optional message/progress/payload.
-- Event types: `STARTED, PROGRESS, INFO, WARNING, HEARTBEAT, COMPLETED, FAILED, CANCELLED, CUSTOM`.
+- `TaskEvent` carries at least: eventId, taskName, executionId, optional correlationKey, eventType, timestamp (library-generated), sequenceNumber (monotonic per execution), optional message/progress. There is **no** arbitrary `Object payload`: it was removed because it only survived the in-memory transport and was dropped cross-process. The event carries only scalar data + message + progress, uniform on every transport.
+- Event types: `STARTED, PROGRESS, INFO, WARNING, HEARTBEAT, COMPLETED, FAILED, CANCELLED`. `FAILED` carries only its `message` (= `Throwable.toString()`); no structured failure object, no stack trace.
 
 ## Implementation order (SPEC §29)
 

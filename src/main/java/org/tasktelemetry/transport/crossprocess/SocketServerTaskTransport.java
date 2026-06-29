@@ -48,8 +48,6 @@ import org.tasktelemetry.transport.TaskTransport;
  * <h2>Limitations (v1)</h2>
  * <ul>
  *   <li>Events published before a client connects are not delivered (no replay).</li>
- *   <li>The {@code payload} field is not transmitted; it will be {@code null}
- *       on the receiving side.</li>
  *   <li>Clients are consumer-only; the server does not read from them.</li>
  * </ul>
  *

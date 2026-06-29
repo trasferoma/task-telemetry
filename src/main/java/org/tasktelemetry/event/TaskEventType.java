@@ -16,8 +16,7 @@ public enum TaskEventType {
     HEARTBEAT(false),
     COMPLETED(true),
     FAILED(true),
-    CANCELLED(true),
-    CUSTOM(false);
+    CANCELLED(true);
 
     private final boolean terminal;
 

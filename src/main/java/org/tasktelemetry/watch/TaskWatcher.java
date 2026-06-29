@@ -79,7 +79,7 @@ public final class TaskWatcher implements AutoCloseable {
 
     /**
      * Registers a callback invoked on every {@code HEARTBEAT} event, kept separate
-     * from {@link #onProgress}. The heartbeat carries no payload of its own; it
+     * from {@link #onProgress}. The heartbeat carries no data of its own; it
      * only signals that the task is still alive.
      *
      * @param heartbeatCallback the callback, required

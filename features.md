@@ -71,10 +71,10 @@ si conosce current/max: percentuale secca (esistente) e ricca (current/max/unit)
 - l'overload esistente `progress(int, message)` resta invariato.
 
 ### Decisioni aperte
-- Dove mettere current/max/unit: nel `payload` (come `TaskFailure` per `FAILED`,
-  niente modifiche alla forma di `TaskEvent`, `TaskWatcher.onProgress` invariato)
-  vs un **campo dedicato** tipizzato su `TaskEvent` (più pulito ma fa crescere il
-  record e tocca builder/costruzioni/test).
+- Dove mettere current/max/unit: l'unica via è un **campo dedicato** tipizzato su
+  `TaskEvent` (più pulito ma fa crescere il record e tocca builder/costruzioni/test).
+  Il vecchio `payload` di tipo `Object` è stato rimosso (viaggiava solo in-memory,
+  scartato dal transport cross-process), quindi non è più un'opzione percorribile.
 - Se mantenere sempre disponibile la percentuale o solo in modalità ricca.
 
 ---

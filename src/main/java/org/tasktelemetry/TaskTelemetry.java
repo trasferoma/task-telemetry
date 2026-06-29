@@ -121,7 +121,6 @@ public final class TaskTelemetry implements AutoCloseable {
         private Supplier<String> executionIdGenerator = () -> UUID.randomUUID().toString();
         private String logPrefix = JulTaskTelemetryLogger.DEFAULT_LOG_PREFIX;
         private TaskTelemetryErrorHandler errorHandler;
-        private boolean includeFailureStackTrace = true;
 
         private Builder() {
         }
@@ -177,19 +176,6 @@ public final class TaskTelemetry implements AutoCloseable {
             return this;
         }
 
-        /**
-         * Sets whether {@code failed} events capture the throwable stack trace in
-         * their {@link org.tasktelemetry.event.TaskFailure} payload. Defaults to
-         * {@code true}.
-         *
-         * @param includeFailureStackTrace whether to capture the stack trace
-         * @return this builder
-         */
-        public Builder includeFailureStackTrace(boolean includeFailureStackTrace) {
-            this.includeFailureStackTrace = includeFailureStackTrace;
-            return this;
-        }
-
         public TaskTelemetry build() {
             TaskTransport resolvedTransport =
                     (transport != null) ? transport : new InMemoryTaskTransport();
@@ -203,8 +189,7 @@ public final class TaskTelemetry implements AutoCloseable {
                     .withClock(clock)
                     .withCloseBehavior(closeBehavior)
                     .withHeartbeat(resolvedScheduler, resolvedInterval)
-                    .withErrorHandler(resolveErrorHandler())
-                    .withIncludeStackTrace(includeFailureStackTrace);
+                    .withErrorHandler(resolveErrorHandler());
 
             return new TaskTelemetry(
                     resolvedTransport, ownedScheduler, executionIdGenerator, reporterSettings);

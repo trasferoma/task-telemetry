@@ -23,7 +23,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.tasktelemetry.event.TaskEvent;
 import org.tasktelemetry.event.TaskEventType;
 import org.tasktelemetry.event.TaskExecutionDescriptor;
-import org.tasktelemetry.event.TaskFailure;
 import org.tasktelemetry.transport.TaskTransport;
 
 @ExtendWith(MockitoExtension.class)
@@ -76,22 +75,19 @@ class TaskReporterTest {
     }
 
     @Test
-    void infoWarningHeartbeatAndCustomEmitMatchingTypes() {
+    void infoWarningAndHeartbeatEmitMatchingTypes() {
         reporter = newReporter();
 
         reporter.info("info message");
         reporter.warning("warning message");
         reporter.heartbeat();
-        reporter.custom("custom message", "payload");
 
         List<TaskEvent> events = publishedEvents();
         assertThat(events).extracting(TaskEvent::type).containsExactly(
                 TaskEventType.STARTED,
                 TaskEventType.INFO,
                 TaskEventType.WARNING,
-                TaskEventType.HEARTBEAT,
-                TaskEventType.CUSTOM);
-        assertThat(events.get(4).payload()).isEqualTo("payload");
+                TaskEventType.HEARTBEAT);
     }
 
     @Test
@@ -118,33 +114,14 @@ class TaskReporterTest {
     }
 
     @Test
-    void failedEmitsFailureWithExceptionTypeMessageAndStackTrace() {
+    void failedEmitsFailureWithThrowableMessage() {
         reporter = newReporter();
 
         reporter.failed(new IllegalStateException("boom"));
 
         TaskEvent failed = publishedEvents().get(1);
         assertThat(failed.type()).isEqualTo(TaskEventType.FAILED);
-        assertThat(failed.message()).contains("boom");
-        assertThat(failed.payload()).isInstanceOf(TaskFailure.class);
-
-        TaskFailure failure = (TaskFailure) failed.payload();
-        assertThat(failure.exceptionType()).isEqualTo(IllegalStateException.class.getName());
-        assertThat(failure.message()).isEqualTo("boom");
-        assertThat(failure.stackTrace()).contains("IllegalStateException");
-    }
-
-    @Test
-    void failedOmitsStackTraceWhenDisabled() {
-        reporter = new TaskReporter(DESCRIPTOR, transport,
-                TaskReporterSettings.defaults().withClock(clock).withIncludeStackTrace(false));
-
-        reporter.failed(new IllegalStateException("boom"));
-
-        TaskFailure failure = (TaskFailure) publishedEvents().get(1).payload();
-        assertThat(failure.exceptionType()).isEqualTo(IllegalStateException.class.getName());
-        assertThat(failure.message()).isEqualTo("boom");
-        assertThat(failure.stackTrace()).isNull();
+        assertThat(failed.message()).contains("boom").contains("IllegalStateException");
     }
 
     @Test

@@ -37,9 +37,6 @@
  * <ul>
  *   <li><b>Best-effort, live, no replay:</b> events published before a client connects
  *       are not delivered to it. No persistence, no queue, no retry.</li>
- *   <li><b>payload not transmitted:</b> the {@code payload} field of
- *       {@link org.tasktelemetry.event.TaskEvent} is dropped during serialization
- *       and will be {@code null} on the receiving side (v1 limitation).</li>
  *   <li><b>No auto-reconnect:</b> if the server closes or the connection is lost,
  *       the {@link org.tasktelemetry.transport.crossprocess.SocketClientTaskTransport}
  *       does not attempt to reconnect automatically in v1.</li>

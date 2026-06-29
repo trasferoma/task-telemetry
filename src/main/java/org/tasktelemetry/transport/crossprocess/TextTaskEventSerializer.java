@@ -30,8 +30,6 @@ import org.tasktelemetry.event.TaskEventType;
  *   <li>{@code timestamp} is epoch-milliseconds (long).</li>
  *   <li>{@code sequenceNumber} is a plain decimal long.</li>
  *   <li>{@code progress} is a plain decimal integer or the {@code -} sentinel.</li>
- *   <li>{@code payload} is never transmitted; it will always be {@code null} after
- *       deserialization.</li>
  * </ul>
  */
 public final class TextTaskEventSerializer implements TaskEventSerializer {

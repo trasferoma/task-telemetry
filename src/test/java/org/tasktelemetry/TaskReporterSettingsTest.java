@@ -24,7 +24,6 @@ class TaskReporterSettingsTest {
         assertThat(settings.clock()).isNotNull();
         assertThat(settings.closeBehavior()).isEqualTo(TaskReporter.CloseBehavior.CANCELLED);
         assertThat(settings.errorHandler()).isNotNull();
-        assertThat(settings.includeStackTrace()).isTrue();
         assertThat(settings.heartbeatScheduler()).isNull();
         assertThat(settings.heartbeatInterval()).isNull();
     }
@@ -38,18 +37,15 @@ class TaskReporterSettingsTest {
                 .withClock(clock)
                 .withCloseBehavior(TaskReporter.CloseBehavior.FAILED)
                 .withHeartbeat(SCHEDULER, Duration.ofSeconds(5))
-                .withErrorHandler(TaskTelemetryErrorHandler.ignore())
-                .withIncludeStackTrace(false);
+                .withErrorHandler(TaskTelemetryErrorHandler.ignore());
 
         assertThat(updated.clock()).isEqualTo(clock);
         assertThat(updated.closeBehavior()).isEqualTo(TaskReporter.CloseBehavior.FAILED);
         assertThat(updated.heartbeatScheduler()).isSameAs(SCHEDULER);
         assertThat(updated.heartbeatInterval()).isEqualTo(Duration.ofSeconds(5));
-        assertThat(updated.includeStackTrace()).isFalse();
 
         // the original is unchanged
         assertThat(defaults.closeBehavior()).isEqualTo(TaskReporter.CloseBehavior.CANCELLED);
-        assertThat(defaults.includeStackTrace()).isTrue();
         assertThat(defaults.heartbeatScheduler()).isNull();
     }
 

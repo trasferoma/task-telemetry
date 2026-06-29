@@ -26,7 +26,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.tasktelemetry.event.TaskEvent;
 import org.tasktelemetry.event.TaskEventType;
-import org.tasktelemetry.event.TaskFailure;
 import org.tasktelemetry.heartbeat.HeartbeatHandle;
 import org.tasktelemetry.heartbeat.HeartbeatScheduler;
 import org.tasktelemetry.listener.ListenerHandle;
@@ -191,24 +190,6 @@ class TaskTelemetryTest {
             public void close() {
             }
         };
-    }
-
-    @Test
-    void builderCanDisableFailureStackTrace() {
-        try (TaskTelemetry telemetry = TaskTelemetry.builder()
-                .transport(transport)
-                .clock(Clock.fixed(FIXED_INSTANT, ZoneOffset.UTC))
-                .heartbeatInterval(null)
-                .includeFailureStackTrace(false)
-                .executionIdGenerator(() -> "exec-fixed")
-                .build()) {
-
-            telemetry.start("IMPORT_CLIENTI").failed(new IllegalStateException("boom"));
-
-            TaskFailure failure = (TaskFailure) publishedEvents().get(1).payload();
-            assertThat(failure.stackTrace()).isNull();
-            assertThat(failure.exceptionType()).isEqualTo(IllegalStateException.class.getName());
-        }
     }
 
     private TaskTelemetry telemetry() {

@@ -6,23 +6,17 @@ import static org.assertj.core.api.Assertions.assertThatNoException;
 
 import java.time.Instant;
 
-import org.instancio.Instancio;
-import org.instancio.junit.InstancioExtension;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-@ExtendWith(InstancioExtension.class)
 class TaskEventTest {
 
     private static final Instant FIXED_TIMESTAMP = Instant.parse("2026-06-28T10:15:30Z");
 
     @Test
     void builder_populatesAllFields() {
-        Object payload = Instancio.create(SamplePayload.class);
-
         TaskEvent event = TaskEvent.builder()
                 .eventId("event-1")
                 .taskName("IMPORT_CLIENTI")
@@ -33,7 +27,6 @@ class TaskEventTest {
                 .sequenceNumber(7)
                 .message("Half of the file processed")
                 .progress(50)
-                .payload(payload)
                 .build();
 
         assertThat(event.eventId()).isEqualTo("event-1");
@@ -45,7 +38,6 @@ class TaskEventTest {
         assertThat(event.sequenceNumber()).isEqualTo(7);
         assertThat(event.message()).isEqualTo("Half of the file processed");
         assertThat(event.progress()).isEqualTo(50);
-        assertThat(event.payload()).isSameAs(payload);
     }
 
     @Test
@@ -55,7 +47,6 @@ class TaskEventTest {
         assertThat(event.correlationKey()).isNull();
         assertThat(event.message()).isNull();
         assertThat(event.progress()).isNull();
-        assertThat(event.payload()).isNull();
     }
 
     @Test
@@ -140,6 +131,4 @@ class TaskEventTest {
                 .sequenceNumber(0);
     }
 
-    record SamplePayload(String label, int value) {
-    }
 }
