@@ -512,60 +512,15 @@ Questo comportamento è accettabile perché il progetto nasce come telemetria li
 
 ---
 
-## 14. Moduli Maven proposti
+## 14. Struttura del progetto
 
-Struttura iniziale:
+Il progetto è un **singolo modulo Maven**, per scelta. Non si adotta un layout
+multi-modulo: core, transport in-memory ed esempi vivono nello stesso modulo,
+organizzati per funzionalità in sotto-package (vedi §30.1).
 
-```text
-task-telemetry-parent
-  task-telemetry-core
-  task-telemetry-transport-inmemory
-  task-telemetry-transport-local-socket
-  task-telemetry-spring-boot-starter   opzionale/futuro
-  task-telemetry-examples
-```
-
-### 14.1 task-telemetry-core
-
-Contiene:
-
-- `TaskTelemetry`;
-- `TaskTelemetryBuilder`;
-- `TaskReporter`;
-- `TaskEvent`;
-- `TaskEventType`;
-- `TaskListener`;
-- `TaskTransport`;
-- `TaskExecutionDescriptor`;
-- heartbeat scheduler abstraction;
-- filtro listener;
-- policy di chiusura.
-
-Non deve dipendere da Spring.
-
-### 14.2 task-telemetry-transport-inmemory
-
-Implementazione in-memory.
-
-Può essere usata nei test e negli esempi.
-
-### 14.3 task-telemetry-transport-local-socket
-
-Implementazione local socket/TCP localhost.
-
-Deve essere progettata dopo aver stabilizzato il core.
-
-### 14.4 task-telemetry-spring-boot-starter
-
-Modulo futuro.
-
-Deve fornire:
-
-- autoconfigurazione;
-- bean `TaskTelemetry`;
-- properties opzionali;
-- integrazione con `@Scheduled` solo tramite uso del reporter, non tramite annotazioni custom obbligatorie;
-- eventuale endpoint actuator futuro.
+Le implementazioni future (transport socket, Spring starter, ecc.) saranno
+aggiunte senza split multi-modulo; restano fuori scope per ora (vedi `features.md`
+e §24/§25).
 
 ---
 
@@ -943,23 +898,14 @@ Risposte adottate nell'implementazione corrente:
 
 Implementare in modo incrementale.
 
-Layout Maven previsto (multi-modulo):
-
-```text
-task-telemetry-core
-task-telemetry-transport-inmemory
-task-telemetry-examples
-```
-
-> Stato attuale: il progetto è ancora a **modulo singolo**, ma le classi sono
-> organizzate per funzionalità in sotto-package:
+> Il progetto è un **singolo modulo Maven** (scelta definitiva, niente
+> multi-modulo). Le classi sono organizzate per funzionalità in sotto-package:
 > `org.tasktelemetry` (runtime: `TaskTelemetry`, `TaskReporter`),
 > `org.tasktelemetry.event` (`TaskEvent`, `TaskEventType`, `TaskExecutionDescriptor`),
 > `org.tasktelemetry.transport` (`TaskTransport`, `InMemoryTaskTransport`),
 > `org.tasktelemetry.heartbeat` (`HeartbeatScheduler`, `HeartbeatHandle`, `ExecutorHeartbeatScheduler`),
 > `org.tasktelemetry.listener` (`TaskListener`, `ListenerRegistration`, `ListenerHandle`, `FilteringTaskListener`),
-> `org.tasktelemetry.example` (`PureJavaExample`).
-> La conversione a multi-modulo resta da fare.
+> `org.tasktelemetry.monitor`, `org.tasktelemetry.watch`, `org.tasktelemetry.logging`, `org.tasktelemetry.example`.
 
 Non implementare subito socket, Redis, Spring o dashboard.
 
@@ -1064,9 +1010,8 @@ Mockito, Instancio. Build con unit test (Surefire) e integration test `*IT`
 
 ### 30.2 Non ancora implementato
 
-- Dispatch asincrono opzionale (§17): solo sincrono.
-- Modello progress ricco `current/max/unit` (§7.2): solo percentuale.
-- Layout Maven multi-modulo (§14).
+- Dispatch asincrono opzionale (§17): solo sincrono; non pianificato, vedi `features.md`.
+- Modello progress ricco `current/max/unit` (§7.2): solo percentuale; non pianificato, vedi `features.md`.
 - Transport socket, Spring Boot starter e transport remoti (§24, §25).
 
 ### 30.3 Note di design
