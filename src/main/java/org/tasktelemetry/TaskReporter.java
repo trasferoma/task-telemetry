@@ -7,6 +7,7 @@ import java.util.Objects;
 import org.tasktelemetry.event.TaskEvent;
 import org.tasktelemetry.event.TaskEventType;
 import org.tasktelemetry.event.TaskExecutionDescriptor;
+import org.tasktelemetry.event.TaskFailure;
 import org.tasktelemetry.heartbeat.HeartbeatHandle;
 import org.tasktelemetry.heartbeat.HeartbeatScheduler;
 import org.tasktelemetry.transport.TaskTransport;
@@ -58,6 +59,7 @@ public final class TaskReporter implements AutoCloseable {
     private final Clock clock;
     private final CloseBehavior closeBehavior;
     private final TaskTelemetryErrorHandler errorHandler;
+    private final boolean includeStackTrace;
 
     private long nextSequenceNumber;
     private boolean terminalEmitted;
@@ -66,84 +68,39 @@ public final class TaskReporter implements AutoCloseable {
     private HeartbeatHandle heartbeatHandle;
 
     /**
-     * Creates a reporter using the system UTC clock, the default
-     * {@link CloseBehavior#CANCELLED} close behavior and no heartbeat.
+     * Creates a reporter with the default settings (see
+     * {@link TaskReporterSettings#defaults()}).
      *
      * @param descriptor identity of the execution, required
      * @param transport  transport used to publish events, required
      */
     public TaskReporter(TaskExecutionDescriptor descriptor, TaskTransport transport) {
-        this(descriptor, transport, Clock.systemUTC(), CloseBehavior.CANCELLED);
+        this(descriptor, transport, TaskReporterSettings.defaults());
     }
 
     /**
-     * Creates a reporter without a heartbeat.
+     * Creates a reporter, emits {@link TaskEventType#STARTED} and, when the
+     * settings supply a scheduler and interval, starts the automatic heartbeat.
      *
-     * @param descriptor    identity of the execution, required
-     * @param transport     transport used to publish events, required
-     * @param clock         clock used to timestamp events, required
-     * @param closeBehavior action taken on close without a terminal event, required
+     * @param descriptor identity of the execution, required
+     * @param transport  transport used to publish events, required
+     * @param settings   reporter configuration, required
      */
     public TaskReporter(
             TaskExecutionDescriptor descriptor,
             TaskTransport transport,
-            Clock clock,
-            CloseBehavior closeBehavior) {
+            TaskReporterSettings settings) {
 
-        this(descriptor, transport, clock, closeBehavior, null, null);
-    }
-
-    /**
-     * Creates a reporter with the default logging error handler.
-     *
-     * @param descriptor         identity of the execution, required
-     * @param transport          transport used to publish events, required
-     * @param clock              clock used to timestamp events, required
-     * @param closeBehavior      action taken on close without a terminal event, required
-     * @param heartbeatScheduler scheduler driving the heartbeat, or {@code null} to disable it
-     * @param heartbeatInterval  delay between heartbeats, or {@code null} to disable it
-     */
-    public TaskReporter(
-            TaskExecutionDescriptor descriptor,
-            TaskTransport transport,
-            Clock clock,
-            CloseBehavior closeBehavior,
-            HeartbeatScheduler heartbeatScheduler,
-            Duration heartbeatInterval) {
-
-        this(descriptor, transport, clock, closeBehavior, heartbeatScheduler, heartbeatInterval,
-                TaskTelemetryErrorHandler.logging());
-    }
-
-    /**
-     * Creates a reporter, emits {@link TaskEventType#STARTED} and, when a
-     * scheduler and interval are supplied, starts the automatic heartbeat.
-     *
-     * @param descriptor         identity of the execution, required
-     * @param transport          transport used to publish events, required
-     * @param clock              clock used to timestamp events, required
-     * @param closeBehavior      action taken on close without a terminal event, required
-     * @param heartbeatScheduler scheduler driving the heartbeat, or {@code null} to disable it
-     * @param heartbeatInterval  delay between heartbeats, or {@code null} to disable it
-     * @param errorHandler       handler invoked when publishing an event fails, required
-     */
-    public TaskReporter(
-            TaskExecutionDescriptor descriptor,
-            TaskTransport transport,
-            Clock clock,
-            CloseBehavior closeBehavior,
-            HeartbeatScheduler heartbeatScheduler,
-            Duration heartbeatInterval,
-            TaskTelemetryErrorHandler errorHandler) {
-
+        Objects.requireNonNull(settings, "settings must not be null");
         this.descriptor = Objects.requireNonNull(descriptor, "descriptor must not be null");
         this.transport = Objects.requireNonNull(transport, "transport must not be null");
-        this.clock = Objects.requireNonNull(clock, "clock must not be null");
-        this.closeBehavior = Objects.requireNonNull(closeBehavior, "closeBehavior must not be null");
-        this.errorHandler = Objects.requireNonNull(errorHandler, "errorHandler must not be null");
+        this.clock = settings.clock();
+        this.closeBehavior = settings.closeBehavior();
+        this.errorHandler = settings.errorHandler();
+        this.includeStackTrace = settings.includeStackTrace();
 
         emit(TaskEventType.STARTED, null, null, null);
-        this.heartbeatHandle = startHeartbeat(heartbeatScheduler, heartbeatInterval);
+        this.heartbeatHandle = startHeartbeat(settings.heartbeatScheduler(), settings.heartbeatInterval());
     }
 
     /**
@@ -221,7 +178,9 @@ public final class TaskReporter implements AutoCloseable {
      */
     public synchronized void failed(Throwable error) {
         Objects.requireNonNull(error, "error must not be null");
-        emitTerminal(TaskEventType.FAILED, error.toString(), error);
+
+        TaskFailure failure = TaskFailure.from(error, includeStackTrace);
+        emitTerminal(TaskEventType.FAILED, error.toString(), failure);
     }
 
     /**

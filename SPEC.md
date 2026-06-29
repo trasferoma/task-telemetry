@@ -1036,6 +1036,11 @@ Mockito, Instancio. Build con unit test (Surefire) e integration test `*IT`
 - Publish-failure policy (§18): `TaskTelemetryErrorHandler` con `ignore()`,
   `logging()` (default) e `rethrow()`. Il `TaskReporter` intercetta i fallimenti di
   `publish` e li instrada all'handler; configurabile dal builder di `TaskTelemetry`.
+- FAILED ricco (§7.7): `failed(Throwable)` mette nel `payload` un record
+  `TaskFailure` (`exceptionType`, `message`, `stackTrace`) con sole stringhe
+  (transport-friendly); il `message` dell'evento resta `Throwable.toString()`. Lo
+  stack trace è configurabile dal builder via `includeFailureStackTrace(boolean)`
+  (default `true`).
 - Logging (§18.1): astrazione `TaskTelemetryLogger` (pluggabile per Log4j/SLF4J),
   default `JulTaskTelemetryLogger` su `java.util.logging`. Prefisso dei messaggi
   configurabile dal builder via `logPrefix(...)` (default `task-telemetry -`, stringa
@@ -1061,13 +1066,17 @@ Mockito, Instancio. Build con unit test (Surefire) e integration test `*IT`
 
 - Dispatch asincrono opzionale (§17): solo sincrono.
 - Modello progress ricco `current/max/unit` (§7.2): solo percentuale.
-- `failed(Throwable)`: il messaggio è `Throwable.toString()` e il throwable
-  finisce nel `payload`; nessuna opzione configurabile per lo stack trace (§7.7).
 - Layout Maven multi-modulo (§14).
 - Transport socket, Spring Boot starter e transport remoti (§24, §25).
 
 ### 30.3 Note di design
 
+- `TaskReporterSettings` (record immutabile con `defaults()` + metodi `with...`)
+  raccoglie le opzioni di configurazione del reporter (clock, closeBehavior,
+  heartbeat, errorHandler, includeStackTrace). `TaskReporter` ha così due soli
+  costruttori (`(descriptor, transport)` e `(descriptor, transport, settings)`) e
+  `TaskTelemetry` un costruttore a 4 parametri; le validazioni dei campi
+  obbligatori sono centralizzate nel settings.
 - `eventId` è deterministico (`executionId-sequenceNumber`), non un UUID a sé:
   univoco dato un `executionId` univoco e comodo per i test. Reso eventualmente
   configurabile in futuro.

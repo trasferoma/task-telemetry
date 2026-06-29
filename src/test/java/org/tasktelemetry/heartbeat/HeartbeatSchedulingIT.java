@@ -2,7 +2,6 @@ package org.tasktelemetry.heartbeat;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.Clock;
 import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -10,6 +9,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 import org.tasktelemetry.TaskReporter;
+import org.tasktelemetry.TaskReporterSettings;
 import org.tasktelemetry.event.TaskEventType;
 import org.tasktelemetry.event.TaskExecutionDescriptor;
 import org.tasktelemetry.transport.InMemoryTaskTransport;
@@ -36,9 +36,8 @@ class HeartbeatSchedulingIT {
                 }
             });
 
-            TaskReporter reporter = new TaskReporter(
-                    DESCRIPTOR, transport, Clock.systemUTC(),
-                    TaskReporter.CloseBehavior.CANCELLED, heartbeatScheduler, INTERVAL);
+            TaskReporter reporter = new TaskReporter(DESCRIPTOR, transport,
+                    TaskReporterSettings.defaults().withHeartbeat(heartbeatScheduler, INTERVAL));
 
             boolean received = twoHeartbeats.await(2, TimeUnit.SECONDS);
             reporter.close();

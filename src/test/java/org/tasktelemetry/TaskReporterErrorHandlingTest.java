@@ -53,9 +53,8 @@ class TaskReporterErrorHandlingTest {
         RuntimeException failure = new RuntimeException("boom");
         doThrow(failure).when(transport).publish(any());
 
-        reporter = new TaskReporter(
-                DESCRIPTOR, transport, clock, TaskReporter.CloseBehavior.CANCELLED,
-                null, null, errorHandler);
+        reporter = new TaskReporter(DESCRIPTOR, transport,
+                TaskReporterSettings.defaults().withClock(clock).withErrorHandler(errorHandler));
 
         ArgumentCaptor<TaskEvent> eventCaptor = ArgumentCaptor.forClass(TaskEvent.class);
         verify(errorHandler).onPublishFailure(eventCaptor.capture(), eq(failure));
@@ -66,9 +65,9 @@ class TaskReporterErrorHandlingTest {
     void ignorePolicyLetsTaskContinue() {
         doThrow(new RuntimeException("boom")).when(transport).publish(any());
 
-        reporter = new TaskReporter(
-                DESCRIPTOR, transport, clock, TaskReporter.CloseBehavior.CANCELLED,
-                null, null, TaskTelemetryErrorHandler.ignore());
+        reporter = new TaskReporter(DESCRIPTOR, transport,
+                TaskReporterSettings.defaults().withClock(clock)
+                        .withErrorHandler(TaskTelemetryErrorHandler.ignore()));
 
         assertThatNoException().isThrownBy(() -> reporter.progress(50, "working"));
     }
@@ -80,9 +79,9 @@ class TaskReporterErrorHandlingTest {
         doThrow(failure).when(transport).publish(any());
 
         assertThatExceptionOfType(RuntimeException.class)
-                .isThrownBy(() -> new TaskReporter(
-                        DESCRIPTOR, transport, clock, TaskReporter.CloseBehavior.CANCELLED,
-                        null, null, TaskTelemetryErrorHandler.rethrow()))
+                .isThrownBy(() -> new TaskReporter(DESCRIPTOR, transport,
+                        TaskReporterSettings.defaults().withClock(clock)
+                                .withErrorHandler(TaskTelemetryErrorHandler.rethrow())))
                 .isSameAs(failure);
     }
 }

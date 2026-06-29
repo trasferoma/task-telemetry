@@ -23,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.tasktelemetry.event.TaskEvent;
 import org.tasktelemetry.event.TaskEventType;
 import org.tasktelemetry.event.TaskExecutionDescriptor;
+import org.tasktelemetry.event.TaskFailure;
 import org.tasktelemetry.transport.TaskTransport;
 
 @ExtendWith(MockitoExtension.class)
@@ -117,16 +118,33 @@ class TaskReporterTest {
     }
 
     @Test
-    void failedEmitsFailureCarryingTheThrowable() {
+    void failedEmitsFailureWithExceptionTypeMessageAndStackTrace() {
         reporter = newReporter();
-        IllegalStateException error = new IllegalStateException("boom");
 
-        reporter.failed(error);
+        reporter.failed(new IllegalStateException("boom"));
 
         TaskEvent failed = publishedEvents().get(1);
         assertThat(failed.type()).isEqualTo(TaskEventType.FAILED);
         assertThat(failed.message()).contains("boom");
-        assertThat(failed.payload()).isSameAs(error);
+        assertThat(failed.payload()).isInstanceOf(TaskFailure.class);
+
+        TaskFailure failure = (TaskFailure) failed.payload();
+        assertThat(failure.exceptionType()).isEqualTo(IllegalStateException.class.getName());
+        assertThat(failure.message()).isEqualTo("boom");
+        assertThat(failure.stackTrace()).contains("IllegalStateException");
+    }
+
+    @Test
+    void failedOmitsStackTraceWhenDisabled() {
+        reporter = new TaskReporter(DESCRIPTOR, transport,
+                TaskReporterSettings.defaults().withClock(clock).withIncludeStackTrace(false));
+
+        reporter.failed(new IllegalStateException("boom"));
+
+        TaskFailure failure = (TaskFailure) publishedEvents().get(1).payload();
+        assertThat(failure.exceptionType()).isEqualTo(IllegalStateException.class.getName());
+        assertThat(failure.message()).isEqualTo("boom");
+        assertThat(failure.stackTrace()).isNull();
     }
 
     @Test
@@ -169,8 +187,9 @@ class TaskReporterTest {
 
     @Test
     void closeWithFailedBehaviorEmitsFailure() {
-        reporter = new TaskReporter(
-                DESCRIPTOR, transport, clock, TaskReporter.CloseBehavior.FAILED);
+        reporter = new TaskReporter(DESCRIPTOR, transport,
+                TaskReporterSettings.defaults().withClock(clock)
+                        .withCloseBehavior(TaskReporter.CloseBehavior.FAILED));
 
         reporter.close();
 
@@ -181,8 +200,9 @@ class TaskReporterTest {
 
     @Test
     void closeWithIgnoreBehaviorEmitsNoTerminal() {
-        reporter = new TaskReporter(
-                DESCRIPTOR, transport, clock, TaskReporter.CloseBehavior.IGNORE);
+        reporter = new TaskReporter(DESCRIPTOR, transport,
+                TaskReporterSettings.defaults().withClock(clock)
+                        .withCloseBehavior(TaskReporter.CloseBehavior.IGNORE));
 
         reporter.close();
 
@@ -217,18 +237,17 @@ class TaskReporterTest {
     @Test
     @SuppressWarnings("resource") // constructors are expected to throw, no reporter is created
     void constructorRejectsNullArguments() {
+        TaskReporterSettings settings = TaskReporterSettings.defaults().withClock(clock);
         assertThatNullPointerException().isThrownBy(
-                () -> new TaskReporter(null, transport, clock, TaskReporter.CloseBehavior.CANCELLED));
+                () -> new TaskReporter(null, transport, settings));
         assertThatNullPointerException().isThrownBy(
-                () -> new TaskReporter(DESCRIPTOR, null, clock, TaskReporter.CloseBehavior.CANCELLED));
+                () -> new TaskReporter(DESCRIPTOR, null, settings));
         assertThatNullPointerException().isThrownBy(
-                () -> new TaskReporter(DESCRIPTOR, transport, null, TaskReporter.CloseBehavior.CANCELLED));
-        assertThatNullPointerException().isThrownBy(
-                () -> new TaskReporter(DESCRIPTOR, transport, clock, null));
+                () -> new TaskReporter(DESCRIPTOR, transport, null));
     }
 
     private TaskReporter newReporter() {
-        return new TaskReporter(DESCRIPTOR, transport, clock, TaskReporter.CloseBehavior.CANCELLED);
+        return new TaskReporter(DESCRIPTOR, transport, TaskReporterSettings.defaults().withClock(clock));
     }
 
     private List<TaskEvent> publishedEvents() {

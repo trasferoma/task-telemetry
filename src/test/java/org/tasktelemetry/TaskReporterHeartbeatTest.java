@@ -123,22 +123,22 @@ class TaskReporterHeartbeatTest {
     @SuppressWarnings("resource") // constructor is expected to throw, no reporter is created
     void rejectsNonPositiveInterval() {
         assertThatExceptionOfType(IllegalArgumentException.class).isThrownBy(() -> new TaskReporter(
-                DESCRIPTOR, transport, clock, TaskReporter.CloseBehavior.CANCELLED,
-                scheduler, Duration.ZERO));
+                DESCRIPTOR, transport,
+                TaskReporterSettings.defaults().withClock(clock).withHeartbeat(scheduler, Duration.ZERO)));
     }
 
     @Test
     @SuppressWarnings("resource") // constructor is expected to throw, no reporter is created
     void rejectsSchedulerWithoutInterval() {
         assertThatNullPointerException().isThrownBy(() -> new TaskReporter(
-                DESCRIPTOR, transport, clock, TaskReporter.CloseBehavior.CANCELLED,
-                scheduler, null));
+                DESCRIPTOR, transport,
+                TaskReporterSettings.defaults().withClock(clock).withHeartbeat(scheduler, null)));
     }
 
     private TaskReporter newReporter() {
         return new TaskReporter(
-                DESCRIPTOR, transport, clock, TaskReporter.CloseBehavior.CANCELLED,
-                scheduler, INTERVAL);
+                DESCRIPTOR, transport,
+                TaskReporterSettings.defaults().withClock(clock).withHeartbeat(scheduler, INTERVAL));
     }
 
     private List<TaskEvent> publishedEvents() {

@@ -81,6 +81,6 @@ class ReporterTransportIT {
     }
 
     private TaskReporter newReporter() {
-        return new TaskReporter(DESCRIPTOR, transport, CLOCK, TaskReporter.CloseBehavior.CANCELLED);
+        return new TaskReporter(DESCRIPTOR, transport, TaskReporterSettings.defaults().withClock(CLOCK));
     }
 }
