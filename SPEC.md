@@ -805,13 +805,17 @@ Escludere:
 
 ## 24. Versione 0.2 - scope possibile
 
-Possibili evoluzioni:
+Stato:
 
-- local socket/TCP localhost transport;
-- serializer SPI;
-- esempi con due processi Java sulla stessa macchina;
-- utility per stato `RUNNING/STALE/LOST` lato listener;
-- migliore gestione failure di transport.
+- local socket/TCP localhost transport — **IMPLEMENTATO** (package
+  `org.tasktelemetry.transport.crossprocess`, vedi §30.1);
+- serializer SPI — **IMPLEMENTATO** (`TaskEventSerializer` +
+  `TextTaskEventSerializer`);
+- utility per stato `RUNNING/STALE/LOST` lato listener — **IMPLEMENTATO** (§9.1);
+- esempi con processi Java separati sulla stessa macchina — **IMPLEMENTATO**
+  (`org.tasktelemetry.example.clientservercrossprocess.example1`: `HubProcess`,
+  `TaskProcess`, `ClientProcess`);
+- migliore gestione failure di transport (auto-reconnect, ecc.) — da fare.
 
 ---
 
@@ -1006,13 +1010,20 @@ Mockito, Instancio. Build con unit test (Surefire) e integration test `*IT`
   (package `org.tasktelemetry.watch`) che incapsula subscribe-per-nome, attesa,
   monitor di liveness, cattura `executionId` e rilevamento del terminale dietro
   tre metodi: `onProgress`, `awaitStart`, `awaitCompletion`.
+- Transport cross-process localhost (§24): package
+  `org.tasktelemetry.transport.crossprocess`, **autonomo e cancellabile** (il core
+  non ne dipende). `CrossProcessTaskHub` (relay TCP localhost), `SocketTaskTransport`
+  (`TaskTransport` client), SPI `TaskEventSerializer` + default
+  `TextTaskEventSerializer` (formato a righe, campi Base64). Best-effort, niente
+  replay, niente auto-reconnect in v1; il `payload` **non** viaggia sul filo
+  (passano i campi scalari + message + progress).
 - Esempio Java puro: `org.tasktelemetry.example.simple.OnlyTaskExample`.
 
 ### 30.2 Non ancora implementato
 
 - Dispatch asincrono opzionale (§17): solo sincrono; non pianificato, vedi `features.md`.
 - Modello progress ricco `current/max/unit` (§7.2): solo percentuale; non pianificato, vedi `features.md`.
-- Transport socket, Spring Boot starter e transport remoti (§24, §25).
+- Spring Boot starter e transport remoti via broker (Redis/RabbitMQ/Kafka) (§25).
 
 ### 30.3 Note di design
 

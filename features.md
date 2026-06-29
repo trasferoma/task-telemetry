@@ -81,6 +81,9 @@ si conosce current/max: percentuale secca (esistente) e ricca (current/max/unit)
 
 ## Altre funzionalità future
 Già descritte in `SPEC.md`, non duplicate qui:
-- Transport cross-process: local socket/TCP (§24) e broker Redis/RabbitMQ/Kafka (§25).
+- Transport remoti via broker: Redis/RabbitMQ/Kafka (§25). Il transport
+  cross-process **localhost** è già implementato (§24, package
+  `org.tasktelemetry.transport.crossprocess`).
+- Auto-reconnect / gestione robusta della connessione per il transport socket (§24).
 - Spring Boot starter (§25).
 - Bridge SSE/WebSocket, endpoint REST, integrazione OpenTelemetry (§25).
