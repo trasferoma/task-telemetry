@@ -2,8 +2,10 @@ package org.tasktelemetry.transport.crossprocess;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 import java.io.IOException;
+import java.net.ServerSocket;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -122,6 +124,18 @@ class CrossProcessTransportIT {
                 server.publish(event(2, TaskEventType.COMPLETED, 100));
             }).doesNotThrowAnyException();
         }
+    }
+
+    @Test
+    void connectingToUnreachableServerThrowsTaskUnreachableException() throws IOException {
+        int freePort;
+        try (ServerSocket probe = new ServerSocket(0)) {
+            freePort = probe.getLocalPort();
+        }
+        // the probe socket is now closed: nothing is listening on freePort
+
+        assertThatExceptionOfType(TaskUnreachableException.class)
+                .isThrownBy(() -> new SocketClientTaskTransport("localhost", freePort));
     }
 
     // --- helpers ---

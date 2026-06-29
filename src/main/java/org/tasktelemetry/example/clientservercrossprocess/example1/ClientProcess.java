@@ -4,6 +4,7 @@ import java.time.Duration;
 
 import org.tasktelemetry.monitor.TaskExecutionStatus;
 import org.tasktelemetry.transport.crossprocess.SocketClientTaskTransport;
+import org.tasktelemetry.transport.crossprocess.TaskUnreachableException;
 import org.tasktelemetry.watch.TaskWatcher;
 
 /**
@@ -27,10 +28,10 @@ public final class ClientProcess {
         SocketClientTaskTransport transport;
         try {
             transport = new SocketClientTaskTransport(ExampleConfig.HOST, ExampleConfig.PORT);
-        } catch (IllegalStateException ex) {
-            System.err.println("Cannot connect to task server at "
+        } catch (TaskUnreachableException ex) {
+            System.err.println("Cannot reach task server at "
                     + ExampleConfig.HOST + ":" + ExampleConfig.PORT
-                    + " — make sure TaskProcess is running first.");
+                    + " - make sure TaskProcess is running first.");
             System.err.println("Cause: " + ex.getMessage());
             return;
         }

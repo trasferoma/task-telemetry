@@ -35,8 +35,8 @@ import org.tasktelemetry.transport.TaskTransport;
  * should use {@link #subscribe} only.
  *
  * <h2>Connection</h2>
- * The socket is opened during construction. If the server is not reachable, an
- * {@link IllegalStateException} is thrown immediately.
+ * The socket is opened during construction. If the server is not reachable, a
+ * {@link TaskUnreachableException} is thrown immediately.
  *
  * <h2>Reader thread</h2>
  * A single daemon thread ({@code task-telemetry-crossprocess-client-N}) reads lines
@@ -73,7 +73,7 @@ public final class SocketClientTaskTransport implements TaskTransport, AutoClose
      *
      * @param host the server host name or IP address
      * @param port the server port
-     * @throws IllegalStateException if the connection cannot be established
+     * @throws TaskUnreachableException if the connection cannot be established
      */
     public SocketClientTaskTransport(String host, int port) {
         this(host, port, new TextTaskEventSerializer());
@@ -85,7 +85,7 @@ public final class SocketClientTaskTransport implements TaskTransport, AutoClose
      * @param host       the server host name or IP address
      * @param port       the server port
      * @param serializer the serializer to use for decoding incoming events
-     * @throws IllegalStateException if the connection cannot be established
+     * @throws TaskUnreachableException if the connection cannot be established
      */
     public SocketClientTaskTransport(String host, int port, TaskEventSerializer serializer) {
         Objects.requireNonNull(host, "host must not be null");
@@ -144,8 +144,8 @@ public final class SocketClientTaskTransport implements TaskTransport, AutoClose
         try {
             return new Socket(host, port);
         } catch (IOException ex) {
-            throw new IllegalStateException(
-                    "task-telemetry - SocketClientTaskTransport: cannot connect to server at "
+            throw new TaskUnreachableException(
+                    "task-telemetry - SocketClientTaskTransport: cannot reach task server at "
                             + host + ":" + port, ex);
         }
     }
