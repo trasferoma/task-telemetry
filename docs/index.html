@@ -1,0 +1,803 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>task-telemetry — Guida</title>
+<meta name="description" content="Guida d'uso passo passo della libreria Java task-telemetry: emettere e osservare la telemetria live di task asincroni.">
+
+<style>
+  :root {
+    --bg: #ffffff;
+    --panel: #f7f8fa;
+    --ink: #1d2433;
+    --muted: #5b6577;
+    --border: #e6e8ee;
+    --accent: #4c6ef5;
+    --accent-soft: #edf1ff;
+    --code-bg: #161b27;
+    --code-ink: #e7eaf3;
+    --code-dim: #8a93a6;
+    --green: #2f9e44;
+    --amber: #e8920c;
+    --red: #e03131;
+    --blue: #1c7ed6;
+    --radius: 8px;
+    --sidebar-w: 248px;
+    --maxw: 820px;
+    --mono: "SFMono-Regular", "Cascadia Code", "JetBrains Mono", "Consolas", "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  code { font-family: var(--mono); font-size: 0.875em; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: 60px;
+    padding: 0 20px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    font-size: 1.05rem;
+  }
+  .brand:hover { text-decoration: none; }
+  .pulse {
+    width: 11px; height: 11px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 0 0 rgba(47, 158, 68, 0.5);
+    animation: pulse 2s infinite;
+    flex: none;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(47, 158, 68, 0.45); }
+    70% { box-shadow: 0 0 0 9px rgba(47, 158, 68, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(47, 158, 68, 0); }
+  }
+  .brand .tag { color: var(--muted); font-weight: 400; font-size: 0.85rem; }
+
+  .spacer { flex: 1; }
+
+  .langswitch { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+  .langswitch button {
+    font: inherit; font-size: 0.82rem; font-weight: 600;
+    border: 0; background: transparent; color: var(--muted);
+    padding: 6px 14px; cursor: pointer;
+  }
+  .langswitch button.active { background: var(--accent); color: #fff; }
+
+  .menu-btn {
+    display: none;
+    font: inherit; font-size: 0.85rem; font-weight: 600;
+    border: 1px solid var(--border); background: #fff; color: var(--ink);
+    border-radius: var(--radius); padding: 6px 12px; cursor: pointer;
+  }
+
+  /* ---------- layout ---------- */
+  .layout {
+    display: grid;
+    grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+    align-items: start;
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 60px;
+    align-self: start;
+    height: calc(100vh - 60px);
+    overflow-y: auto;
+    padding: 26px 14px 60px 20px;
+    border-right: 1px solid var(--border);
+  }
+  .sidebar h4 {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    margin: 18px 8px 6px;
+  }
+  .sidebar nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 0.9rem;
+    border-left: 2px solid transparent;
+  }
+  .sidebar nav a:hover { background: var(--panel); color: var(--ink); text-decoration: none; }
+  .sidebar nav a.active {
+    color: var(--accent);
+    background: var(--accent-soft);
+    font-weight: 600;
+  }
+
+  .content { padding: 40px 40px 120px; max-width: calc(var(--maxw) + 80px); }
+  .content section { scroll-margin-top: 76px; }
+
+  /* ---------- typography ---------- */
+  h1 { font-size: 2.2rem; line-height: 1.15; letter-spacing: -0.02em; margin: 0 0 10px; text-wrap: balance; }
+  h2 {
+    font-size: 1.5rem; letter-spacing: -0.01em; margin: 52px 0 14px;
+    padding-top: 10px; text-wrap: balance;
+  }
+  h3 { font-size: 1.12rem; margin: 30px 0 8px; }
+  p, li { max-width: 68ch; }
+  .lead { font-size: 1.15rem; color: var(--muted); max-width: 64ch; }
+  ul, ol { padding-left: 22px; }
+  li { margin: 4px 0; }
+  hr { border: 0; border-top: 1px solid var(--border); margin: 40px 0; }
+
+  .eyebrow {
+    text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.74rem;
+    font-weight: 700; color: var(--accent); margin-bottom: 8px;
+  }
+
+  /* ---------- callouts ---------- */
+  .note {
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    margin: 18px 0;
+    font-size: 0.94rem;
+  }
+  .note.warn { border-left-color: var(--amber); background: #fff7e9; }
+  .note strong { color: var(--ink); }
+
+  /* ---------- code ---------- */
+  .code {
+    position: relative;
+    background: var(--code-bg);
+    border-radius: var(--radius);
+    margin: 16px 0;
+    overflow: hidden;
+  }
+  .code .bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    color: var(--code-dim);
+    font-family: var(--mono); font-size: 0.74rem;
+  }
+  .code .bar .file { flex: 1; }
+  .code .copy {
+    font: inherit; font-family: var(--sans); font-size: 0.72rem; font-weight: 600;
+    border: 1px solid rgba(255,255,255,0.16); color: var(--code-dim);
+    background: transparent; border-radius: 5px; padding: 3px 9px; cursor: pointer;
+  }
+  .code .copy:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
+  pre {
+    margin: 0; padding: 16px;
+    overflow-x: auto;
+    color: var(--code-ink);
+    font-family: var(--mono); font-size: 0.84rem; line-height: 1.55;
+    tab-size: 4;
+  }
+  pre .k { color: #c7a3ff; }       /* keyword */
+  pre .s { color: #9ae6a4; }       /* string */
+  pre .c { color: var(--code-dim); font-style: italic; } /* comment */
+  pre .t { color: #7bc5ff; }       /* type */
+  :not(pre) > code {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 1px 5px;
+    color: #364; color: var(--ink);
+  }
+
+  /* ---------- tables ---------- */
+  .table-wrap { overflow-x: auto; margin: 16px 0; border: 1px solid var(--border); border-radius: var(--radius); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--panel); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+  tr:last-child td { border-bottom: 0; }
+  td code { white-space: nowrap; }
+
+  /* ---------- status chips ---------- */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 0.82rem; font-weight: 600;
+    border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px;
+    background: #fff;
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .dot.g { background: var(--green); } .dot.a { background: var(--amber); }
+  .dot.r { background: var(--red); } .dot.b { background: var(--blue); }
+  .dot.m { background: var(--muted); }
+
+  /* ---------- work in progress ---------- */
+  .wip {
+    max-width: 640px; margin: 90px auto; padding: 0 24px; text-align: center;
+  }
+  .wip .big { font-size: 3rem; margin-bottom: 8px; }
+  .wip h1 { font-size: 1.8rem; }
+  .wip p { margin: 12px auto 28px; color: var(--muted); max-width: 48ch; }
+  .btn {
+    display: inline-block; font-weight: 600; font-size: 0.95rem;
+    background: var(--accent); color: #fff; border: 0; border-radius: var(--radius);
+    padding: 11px 20px; cursor: pointer;
+  }
+  .btn:hover { text-decoration: none; filter: brightness(1.06); }
+
+  [hidden] { display: none !important; }
+
+  footer {
+    border-top: 1px solid var(--border);
+    color: var(--muted); font-size: 0.85rem;
+    padding: 24px 40px; max-width: 1180px; margin: 0 auto;
+  }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar {
+      position: fixed; top: 60px; left: 0; right: 0; bottom: 0; height: auto;
+      background: #fff; z-index: 15; border-right: 0; border-bottom: 1px solid var(--border);
+    }
+    .sidebar[hidden] { display: none !important; }
+    .menu-btn { display: inline-block; }
+    .content { padding: 28px 20px 100px; }
+    h1 { font-size: 1.8rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pulse { animation: none; }
+    html { scroll-behavior: auto; }
+  }
+  html { scroll-behavior: smooth; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <button class="menu-btn" id="menuBtn" aria-label="Mostra indice">☰ Indice</button>
+  <a class="brand" href="#top">
+    <span class="pulse" aria-hidden="true"></span>
+    task-telemetry
+    <span class="tag">guida</span>
+  </a>
+  <span class="spacer"></span>
+  <div class="langswitch" role="group" aria-label="Lingua">
+    <button id="btn-it" class="active" type="button">IT</button>
+    <button id="btn-en" type="button">EN</button>
+  </div>
+</header>
+
+<!-- ================= ITALIANO ================= -->
+<div class="layout" id="lang-it">
+  <aside class="sidebar" id="sidebar">
+    <nav>
+      <h4>Iniziare</h4>
+      <a href="#intro">Che cos'è</a>
+      <a href="#concetti">Concetti base</a>
+      <a href="#installazione">Installazione</a>
+      <a href="#hello">Esempio minimo</a>
+      <h4>Il task (produttore)</h4>
+      <a href="#emettere">Emettere eventi</a>
+      <a href="#heartbeat">Battito automatico</a>
+      <a href="#fine">Fine: completato / fallito</a>
+      <h4>Chi osserva (consumatore)</h4>
+      <a href="#ascoltare">Ascoltare gli eventi</a>
+      <a href="#filtri">Filtrare</a>
+      <a href="#watcher">TaskWatcher</a>
+      <a href="#stati">Stato di vita</a>
+      <h4>Avanzato</h4>
+      <a href="#processi">Stessa JVM o processi separati</a>
+      <a href="#config">Configurazione</a>
+      <a href="#errori">Gestione errori</a>
+      <a href="#eventi">Tipi di evento</a>
+      <a href="#nongoals">Cosa NON fa</a>
+    </nav>
+  </aside>
+
+  <main class="content" id="top">
+
+    <section id="intro">
+      <div class="eyebrow">Guida d'uso</div>
+      <h1>Telemetria live per i tuoi task asincroni</h1>
+      <p class="lead">
+        <strong>task-telemetry</strong> è una piccola libreria Java che permette a un processo lungo
+        o asincrono (un import, un upload, un job schedulato…) di comunicare <em>in tempo reale</em> a che
+        punto è, se è ancora vivo e come è finito — verso uno o più osservatori.
+      </p>
+      <p>
+        Il task <strong>non sa chi lo ascolta</strong>: emette eventi e basta. Un osservatore si registra
+        e li riceve. Questa guida ti mostra, passo passo, tutto quello che puoi fare — senza dover capire
+        come la libreria funziona dentro.
+      </p>
+      <div class="note">
+        <strong>In due righe:</strong> il <em>task</em> apre un <code>TaskReporter</code> e chiama
+        <code>progress(...)</code>, <code>info(...)</code>, <code>completed(...)</code>.
+        Chi osserva si registra con <code>listen()</code> o, più comodo, con <code>TaskWatcher</code>.
+      </div>
+    </section>
+
+    <section id="concetti">
+      <h2>Concetti base</h2>
+      <ul>
+        <li><strong>Task</strong>: il <em>tipo</em> di lavoro, identificato da un nome (es. <code>"IMPORT_CLIENTI"</code>).</li>
+        <li><strong>Execution</strong>: una singola esecuzione di quel task, con un <code>executionId</code> generato automaticamente.</li>
+        <li><strong>correlationKey</strong> (facoltativa): un riferimento al tuo dominio applicativo da legare all'esecuzione (es. il nome del file, l'id della pratica).</li>
+        <li><strong>Evento</strong> (<code>TaskEvent</code>): ciò che il task emette — inizio, avanzamento, messaggi, battito, fine.</li>
+        <li><strong>Reporter</strong> (<code>TaskReporter</code>): l'oggetto con cui il task emette gli eventi.</li>
+        <li><strong>Listener</strong>: la funzione che riceve gli eventi lato osservatore.</li>
+        <li><strong>Transport</strong>: il "tubo" su cui viaggiano gli eventi (in memoria nella stessa JVM, oppure via socket tra processi).</li>
+        <li><strong>Runtime</strong> (<code>TaskTelemetry</code>): il punto d'ingresso che crea i reporter e registra gli osservatori.</li>
+      </ul>
+    </section>
+
+    <section id="installazione">
+      <h2>Installazione</h2>
+      <p>Richiede <strong>Java 17</strong>. Aggiungi la dipendenza Maven:</p>
+      <div class="code">
+        <div class="bar"><span class="file">pom.xml</span><button class="copy" type="button">Copia</button></div>
+<pre><span class="t">&lt;dependency&gt;</span>
+    &lt;groupId&gt;org.tasktelemetry&lt;/groupId&gt;
+    &lt;artifactId&gt;task-telemetry&lt;/artifactId&gt;
+    &lt;version&gt;1.0-SNAPSHOT&lt;/version&gt;
+<span class="t">&lt;/dependency&gt;</span></pre>
+      </div>
+      <p>Il core non ha dipendenze a runtime (solo la libreria standard di Java).</p>
+    </section>
+
+    <section id="hello">
+      <h2>Esempio minimo</h2>
+      <p>Nello stesso programma: creiamo il runtime, ci mettiamo in ascolto, eseguiamo un task.</p>
+      <div class="code">
+        <div class="bar"><span class="file">HelloTelemetry.java</span><button class="copy" type="button">Copia</button></div>
+<pre><span class="k">try</span> (<span class="t">TaskTelemetry</span> telemetry = <span class="t">TaskTelemetry</span>.defaults()) {
+
+    <span class="c">// 1) chi osserva si registra</span>
+    telemetry.listen()
+        .taskName(<span class="s">"SALUTO"</span>)
+        .onEvent(event -> <span class="t">System</span>.out.println(event.type() + <span class="s">" "</span> + event.message()))
+        .start();
+
+    <span class="c">// 2) il task emette i suoi eventi</span>
+    <span class="k">try</span> (<span class="t">TaskReporter</span> reporter = telemetry.start(<span class="s">"SALUTO"</span>)) {
+        reporter.progress(<span class="s">0</span>, <span class="s">"inizio"</span>);
+        reporter.progress(<span class="s">100</span>, <span class="s">"fatto"</span>);
+        reporter.completed(<span class="s">"finito"</span>);
+    }
+}</pre>
+      </div>
+      <p>
+        <code>TaskTelemetry.defaults()</code> crea un runtime pronto all'uso (transport in memoria,
+        battito automatico ogni 5 secondi). Sia il produttore sia l'osservatore usano la
+        <strong>stessa istanza</strong> <code>telemetry</code> — questo è ciò che li collega.
+        (Più avanti vediamo come collegarli quando sono componenti o processi separati.)
+      </p>
+    </section>
+
+    <hr>
+
+    <section id="emettere">
+      <h2>Emettere eventi (il task)</h2>
+      <p>
+        Il task ottiene un <code>TaskReporter</code> da <code>telemetry.start(...)</code> e lo usa con
+        <code>try-with-resources</code>. All'apertura viene emesso automaticamente l'evento
+        <code>STARTED</code>; alla chiusura, se non hai già concluso, viene emesso <code>CANCELLED</code>.
+      </p>
+      <div class="code">
+        <div class="bar"><span class="file">Produttore</span><button class="copy" type="button">Copia</button></div>
+<pre><span class="c">// "IMPORT_CLIENTI" = nome del task; "file.csv" = correlationKey (facoltativa)</span>
+<span class="k">try</span> (<span class="t">TaskReporter</span> reporter = telemetry.start(<span class="s">"IMPORT_CLIENTI"</span>, <span class="s">"file.csv"</span>)) {
+
+    reporter.progress(<span class="s">0</span>, <span class="s">"Avvio import"</span>);   <span class="c">// percentuale 0–100 + messaggio</span>
+    reporter.info(<span class="s">"Lettura del file"</span>);          <span class="c">// messaggio informativo</span>
+    reporter.warning(<span class="s">"Riga 42 ignorata"</span>);       <span class="c">// avviso non bloccante</span>
+    reporter.progress(<span class="s">50</span>, <span class="s">"Metà fatto"</span>);
+    reporter.progress(<span class="s">100</span>, <span class="s">"Completato"</span>);
+
+    reporter.completed(<span class="s">"Import riuscito"</span>);       <span class="c">// fine con successo</span>
+}</pre>
+      </div>
+      <p>Metodi disponibili sul reporter:</p>
+      <ul>
+        <li><code>progress(int percentuale, String messaggio)</code> — avanzamento 0–100.</li>
+        <li><code>info(String)</code> / <code>warning(String)</code> — messaggi.</li>
+        <li><code>custom(String messaggio, Object payload)</code> — evento applicativo con dato a piacere.</li>
+        <li><code>completed(String)</code> — fine con successo.</li>
+        <li><code>failed(Throwable)</code> — fine con errore.</li>
+        <li><code>cancelled(String)</code> — interruzione volontaria.</li>
+      </ul>
+      <div class="note">
+        <strong>Il task non sa chi ascolta.</strong> Emetti e basta: se nessuno è in ascolto, gli eventi
+        semplicemente non vengono consegnati (consegna "best-effort", nessuna coda, nessuno storico).
+      </div>
+    </section>
+
+    <section id="heartbeat">
+      <h2>Il battito automatico (heartbeat)</h2>
+      <p>
+        Finché il reporter è aperto e il task <em>tace</em> (non emette nulla), la libreria manda da sola
+        un evento <code>HEARTBEAT</code> a intervalli regolari: serve a dire "sono ancora vivo".
+        <strong>Non devi fare nulla</strong> — non chiami tu il battito. Gli eventi normali (un
+        <code>progress</code>, un <code>info</code>) valgono già come segnale di vita e rimandano il battito.
+      </p>
+      <p>L'intervallo si configura sul runtime (default 5 secondi):</p>
+      <div class="code">
+        <div class="bar"><span class="file">Battito ogni 2 secondi</span><button class="copy" type="button">Copia</button></div>
+<pre><span class="t">TaskTelemetry</span> telemetry = <span class="t">TaskTelemetry</span>.builder()
+        .heartbeatInterval(<span class="t">Duration</span>.ofSeconds(<span class="s">2</span>))
+        .build();</pre>
+      </div>
+    </section>
+
+    <section id="fine">
+      <h2>Concludere: completato, fallito, annullato</h2>
+      <p>Un task finisce sempre con un evento <em>terminale</em>. Dopo un terminale non puoi più emettere.</p>
+      <div class="code">
+        <div class="bar"><span class="file">Successo o errore</span><button class="copy" type="button">Copia</button></div>
+<pre><span class="k">try</span> (<span class="t">TaskReporter</span> reporter = telemetry.start(<span class="s">"EXPORT"</span>)) {
+    eseguiLavoro(reporter);
+    reporter.completed(<span class="s">"Export riuscito"</span>);
+} <span class="k">catch</span> (<span class="t">Exception</span> e) {
+    <span class="c">// in caso di errore lo comunichi così:</span>
+    <span class="c">// (nota: dopo un terminale il reporter non emette più)</span>
+}</pre>
+      </div>
+      <p>
+        Con <code>failed(eccezione)</code> l'evento <code>FAILED</code> porta nel suo <em>payload</em> un
+        <code>TaskFailure</code> con <code>exceptionType</code>, <code>message</code> e (configurabile)
+        <code>stackTrace</code>.
+      </p>
+      <div class="note">
+        <strong>Chiusura senza terminale.</strong> Se chiudi il reporter (es. fine del
+        <code>try-with-resources</code>) senza aver chiamato <code>completed</code>/<code>failed</code>,
+        per default viene emesso <code>CANCELLED</code>. Lo puoi cambiare (vedi
+        <a href="#config">Configurazione</a>).
+      </div>
+    </section>
+
+    <hr>
+
+    <section id="ascoltare">
+      <h2>Ascoltare gli eventi (l'osservatore)</h2>
+      <p>Ti registri con <code>listen()</code>, scegli cosa ascoltare e fornisci una funzione che riceve ogni evento:</p>
+      <div class="code">
+        <div class="bar"><span class="file">Consumatore base</span><button class="copy" type="button">Copia</button></div>
+<pre><span class="t">ListenerHandle</span> handle = telemetry.listen()
+        .taskName(<span class="s">"IMPORT_CLIENTI"</span>)
+        .onEvent(event -> {
+            <span class="t">System</span>.out.println(event.type() + <span class="s">" #"</span> + event.sequenceNumber());
+            <span class="k">if</span> (event.progress() != <span class="k">null</span>) {
+                aggiornaBarra(event.progress());
+            }
+        })
+        .start();
+
+<span class="c">// quando non ti serve più:</span>
+handle.stop();</pre>
+      </div>
+      <p>
+        Ogni evento è un <code>TaskEvent</code> con: <code>taskName</code>, <code>executionId</code>,
+        <code>correlationKey</code>, <code>type</code>, <code>timestamp</code>,
+        <code>sequenceNumber</code> (numero crescente per rilevare buchi), e i campi opzionali
+        <code>message</code>, <code>progress</code>, <code>payload</code>.
+      </p>
+    </section>
+
+    <section id="filtri">
+      <h2>Filtrare gli eventi</h2>
+      <p>Puoi restringere ciò che ricevi. I filtri si combinano in AND; quelli non impostati accettano tutto.</p>
+      <div class="code">
+        <div class="bar"><span class="file">Filtri</span><button class="copy" type="button">Copia</button></div>
+<pre>telemetry.listen()
+        .taskName(<span class="s">"IMPORT_CLIENTI"</span>)
+        .correlationKey(<span class="s">"file.csv"</span>)
+        .eventType(<span class="t">TaskEventType</span>.COMPLETED)   <span class="c">// solo gli eventi di fine</span>
+        .onEvent(event -> ...)
+        .start();</pre>
+      </div>
+      <p>Filtri disponibili: <code>taskName</code>, <code>executionId</code>, <code>correlationKey</code>, <code>eventType</code>.</p>
+    </section>
+
+    <section id="watcher">
+      <h2>TaskWatcher: il modo comodo per seguire un task</h2>
+      <p>
+        Se il tuo obiettivo è "aspetta che il task sia in corso, mostrami l'avanzamento, dimmi quando finisce",
+        <code>TaskWatcher</code> fa tutto per te: niente listener, niente gestione dello stato a mano.
+      </p>
+      <div class="code">
+        <div class="bar"><span class="file">Consumatore con TaskWatcher</span><button class="copy" type="button">Copia</button></div>
+<pre><span class="k">try</span> (<span class="t">TaskWatcher</span> watcher = <span class="k">new</span> <span class="t">TaskWatcher</span>(transport, <span class="s">"IMPORT_CLIENTI"</span>)) {
+
+    watcher.onProgress(percento -> aggiornaBarra(percento));
+    watcher.onHeartbeat(() -> log(<span class="s">"il task è ancora vivo"</span>));
+
+    <span class="c">// aspetta fino a 5s che il task sia in corso</span>
+    <span class="k">if</span> (!watcher.awaitStart(<span class="t">Duration</span>.ofSeconds(<span class="s">5</span>))) {
+        <span class="t">System</span>.out.println(<span class="s">"Nessun task in corso"</span>);
+        <span class="k">return</span>;
+    }
+
+    <span class="c">// blocca finché finisce (o finché lo si dà per perso)</span>
+    <span class="t">TaskExecutionStatus</span> esito = watcher.awaitCompletion();
+    <span class="t">System</span>.out.println(<span class="s">"Esito: "</span> + esito); <span class="c">// COMPLETED / FAILED / CANCELLED / LOST</span>
+}</pre>
+      </div>
+      <ul>
+        <li><code>onProgress(percento)</code> — chiamata a ogni evento di avanzamento.</li>
+        <li><code>onHeartbeat()</code> — chiamata a ogni battito (separata dai progress).</li>
+        <li><code>awaitStart(timeout)</code> — <code>true</code> se il task è in corso, <code>false</code> se non compare entro il tempo.</li>
+        <li><code>awaitCompletion()</code> — blocca fino alla fine e ritorna lo stato finale.</li>
+      </ul>
+      <div class="note">
+        <strong>La liveness è automatica.</strong> Non devi controllare tu i battiti: se il task muore
+        (smette di emettere), <code>awaitCompletion()</code> ritorna <code>LOST</code> invece di restare
+        bloccato per sempre.
+      </div>
+    </section>
+
+    <section id="stati">
+      <h2>Lo stato di vita del task</h2>
+      <p>Dal flusso di eventi la libreria ricava uno stato osservabile lato consumatore:</p>
+      <div class="chips">
+        <span class="chip"><span class="dot g"></span>RUNNING — riceve eventi, è vivo</span>
+        <span class="chip"><span class="dot a"></span>STALE — silenzio oltre la soglia</span>
+        <span class="chip"><span class="dot r"></span>LOST — silenzio troppo lungo, probabilmente morto</span>
+        <span class="chip"><span class="dot b"></span>COMPLETED / FAILED / CANCELLED — finito</span>
+      </div>
+      <p>
+        Con <code>TaskWatcher</code> questo è già gestito (lo ottieni da <code>awaitCompletion()</code>).
+        Se ti serve interrogarlo direttamente puoi usare <code>TaskHeartbeatMonitor</code>, configurando
+        le soglie <code>staleAfter</code> e <code>lostAfter</code>.
+      </p>
+      <div class="code">
+        <div class="bar"><span class="file">Soglie di vita</span><button class="copy" type="button">Copia</button></div>
+<pre><span class="c">// stale dopo 15s di silenzio, lost dopo 60s</span>
+<span class="k">new</span> <span class="t">TaskWatcher</span>(transport, <span class="s">"IMPORT_CLIENTI"</span>,
+        <span class="t">Duration</span>.ofSeconds(<span class="s">15</span>), <span class="t">Duration</span>.ofSeconds(<span class="s">60</span>));</pre>
+      </div>
+    </section>
+
+    <hr>
+
+    <section id="processi">
+      <h2>Stessa JVM oppure processi separati</h2>
+      <p>
+        La cosa da capire: produttore e consumatore comunicano <strong>solo se condividono lo stesso
+        transport</strong>. Non basta che usino entrambi <code>task-telemetry</code>.
+      </p>
+
+      <h3>Nella stessa JVM</h3>
+      <p>Condividi la stessa istanza di <code>TaskTelemetry</code> (o lo stesso transport) tra le due parti, come nell'esempio minimo.</p>
+
+      <h3>Tra processi diversi (stessa macchina)</h3>
+      <p>
+        Modello a <strong>2 attori, senza intermediari</strong>: il <em>task fa da server</em> (apre una porta
+        ed emette verso chi è connesso) e il <em>client si connette</em> e riceve gli eventi dal momento
+        della connessione in poi.
+      </p>
+      <div class="code">
+        <div class="bar"><span class="file">Processo task (server)</span><button class="copy" type="button">Copia</button></div>
+<pre><span class="k">try</span> (<span class="t">SocketServerTaskTransport</span> transport = <span class="k">new</span> <span class="t">SocketServerTaskTransport</span>(<span class="s">5555</span>);
+     <span class="t">TaskTelemetry</span> telemetry = <span class="t">TaskTelemetry</span>.builder()
+             .transport(transport)
+             .heartbeatInterval(<span class="t">Duration</span>.ofSeconds(<span class="s">2</span>))
+             .build()) {
+
+    <span class="k">try</span> (<span class="t">TaskReporter</span> reporter = telemetry.start(<span class="s">"UPLOAD"</span>, <span class="s">"foto.zip"</span>)) {
+        reporter.progress(<span class="s">0</span>, <span class="s">"inizio"</span>);
+        <span class="c">// ... lavoro ...</span>
+        reporter.completed(<span class="s">"fatto"</span>);
+    }
+}</pre>
+      </div>
+      <div class="code">
+        <div class="bar"><span class="file">Processo client</span><button class="copy" type="button">Copia</button></div>
+<pre><span class="k">try</span> (<span class="t">SocketClientTaskTransport</span> transport =
+             <span class="k">new</span> <span class="t">SocketClientTaskTransport</span>(<span class="s">"localhost"</span>, <span class="s">5555</span>);
+     <span class="t">TaskWatcher</span> watcher = <span class="k">new</span> <span class="t">TaskWatcher</span>(transport, <span class="s">"UPLOAD"</span>)) {
+
+    watcher.onProgress(p -> <span class="t">System</span>.out.println(<span class="s">"upload al "</span> + p + <span class="s">"%"</span>));
+    watcher.awaitStart(<span class="t">Duration</span>.ofSeconds(<span class="s">30</span>));
+    <span class="t">System</span>.out.println(watcher.awaitCompletion());
+}</pre>
+      </div>
+      <div class="note warn">
+        <strong>Attenzione all'ordine:</strong> con questo modello il client si connette a un task
+        <em>già avviato</em>. Se parte prima che il task abbia aperto la porta, la connessione fallisce con
+        <code>TaskUnreachableException</code> (gestiscila a livello applicativo: riprova o segnala).
+        Inoltre gli eventi emessi prima della connessione <strong>non vengono recuperati</strong>.
+      </div>
+    </section>
+
+    <section id="config">
+      <h2>Configurazione (builder)</h2>
+      <p>Tutto si configura via builder, senza file di configurazione né annotazioni.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Metodo</th><th>A cosa serve</th><th>Default</th></tr></thead>
+          <tbody>
+            <tr><td><code>transport(...)</code></td><td>Il "tubo" degli eventi</td><td>in memoria</td></tr>
+            <tr><td><code>heartbeatInterval(Duration)</code></td><td>Frequenza del battito (<code>null</code> = disattivato)</td><td>5 s</td></tr>
+            <tr><td><code>closeBehavior(...)</code></td><td>Evento alla chiusura senza terminale: <code>CANCELLED</code>, <code>FAILED</code> o <code>IGNORE</code></td><td>CANCELLED</td></tr>
+            <tr><td><code>includeFailureStackTrace(boolean)</code></td><td>Includere lo stack trace nei <code>FAILED</code></td><td>true</td></tr>
+            <tr><td><code>logPrefix(String)</code></td><td>Prefisso dei messaggi di log interni</td><td><code>task-telemetry -</code></td></tr>
+            <tr><td><code>errorHandler(...)</code></td><td>Cosa fare se la consegna di un evento fallisce</td><td>logga</td></tr>
+            <tr><td><code>executionIdGenerator(...)</code></td><td>Come generare l'<code>executionId</code></td><td>UUID</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="errori">
+      <h2>Gestione errori di consegna</h2>
+      <p>
+        Se la pubblicazione di un evento fallisce (es. un osservatore che lancia un'eccezione),
+        per default <strong>il task non si rompe</strong>: l'errore viene loggato e il lavoro prosegue.
+        Puoi scegliere la politica:
+      </p>
+      <div class="code">
+        <div class="bar"><span class="file">Politiche di errore</span><button class="copy" type="button">Copia</button></div>
+<pre><span class="t">TaskTelemetry</span>.builder()
+    .errorHandler(<span class="t">TaskTelemetryErrorHandler</span>.ignore())   <span class="c">// silenzioso</span>
+    <span class="c">// .errorHandler(TaskTelemetryErrorHandler.logging())  // default: logga</span>
+    <span class="c">// .errorHandler(TaskTelemetryErrorHandler.rethrow())  // rilancia (fa fallire il task)</span>
+    .build();</pre>
+      </div>
+    </section>
+
+    <section id="eventi">
+      <h2>Tipi di evento e dati trasportati</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tipo</th><th>Quando</th><th>Dati utili</th></tr></thead>
+          <tbody>
+            <tr><td><code>STARTED</code></td><td>All'apertura del reporter</td><td>—</td></tr>
+            <tr><td><code>PROGRESS</code></td><td><code>progress(...)</code></td><td><code>progress</code> (0–100) + <code>message</code></td></tr>
+            <tr><td><code>INFO</code></td><td><code>info(...)</code></td><td><code>message</code></td></tr>
+            <tr><td><code>WARNING</code></td><td><code>warning(...)</code></td><td><code>message</code></td></tr>
+            <tr><td><code>HEARTBEAT</code></td><td>Automatico, durante il silenzio</td><td>—</td></tr>
+            <tr><td><code>COMPLETED</code></td><td><code>completed(...)</code></td><td><code>message</code></td></tr>
+            <tr><td><code>FAILED</code></td><td><code>failed(...)</code></td><td><code>message</code> + payload <code>TaskFailure</code></td></tr>
+            <tr><td><code>CANCELLED</code></td><td><code>cancelled(...)</code> o chiusura</td><td><code>message</code></td></tr>
+            <tr><td><code>CUSTOM</code></td><td><code>custom(...)</code></td><td><code>message</code> + <code>payload</code> a piacere</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note">
+        <strong>Tra processi diversi</strong> il <code>payload</code> non viene trasmesso (viaggiano i campi
+        scalari + <code>message</code> + <code>progress</code>). Nella stessa JVM, invece, il payload arriva integro.
+      </div>
+    </section>
+
+    <section id="nongoals">
+      <h2>Cosa NON fa (di proposito)</h2>
+      <p>Per restare semplice e prevedibile, la libreria <strong>non</strong>:</p>
+      <ul>
+        <li>esegue o schedula i task (li osserva soltanto);</li>
+        <li>garantisce la consegna o conserva uno storico (è best-effort, live);</li>
+        <li>permette comandi dal consumatore al task (la comunicazione è solo in uscita);</li>
+        <li>è un message broker o una libreria reattiva.</li>
+      </ul>
+      <p style="margin-top:28px;color:var(--muted)">
+        È tutto qui. Apri un reporter, emetti eventi, osservali. Buon lavoro.
+      </p>
+    </section>
+
+  </main>
+</div>
+
+<!-- ================= ENGLISH (WIP) ================= -->
+<div id="lang-en" hidden>
+  <div class="wip">
+    <div class="big" aria-hidden="true">🚧</div>
+    <h1>English version — work in progress</h1>
+    <p>The English translation of this guide isn't ready yet. The Italian version is complete and up to date.</p>
+    <button class="btn" id="back-it" type="button">← Torna alla versione italiana</button>
+  </div>
+</div>
+
+<footer>
+  task-telemetry · guida d'uso · Java 17
+</footer>
+
+<script>
+  (function () {
+    var langIt = document.getElementById('lang-it');
+    var langEn = document.getElementById('lang-en');
+    var btnIt = document.getElementById('btn-it');
+    var btnEn = document.getElementById('btn-en');
+    var backIt = document.getElementById('back-it');
+    var menuBtn = document.getElementById('menuBtn');
+    var sidebar = document.getElementById('sidebar');
+
+    function setLang(lang) {
+      var it = lang === 'it';
+      langIt.hidden = !it;
+      langEn.hidden = it;
+      btnIt.classList.toggle('active', it);
+      btnEn.classList.toggle('active', !it);
+      menuBtn.style.display = it ? '' : 'none';
+      window.scrollTo(0, 0);
+    }
+
+    btnIt.addEventListener('click', function () { setLang('it'); });
+    btnEn.addEventListener('click', function () { setLang('en'); });
+    backIt.addEventListener('click', function () { setLang('it'); });
+
+    // mobile sidebar toggle
+    var sidebarOpen = false;
+    function isMobile() { return window.matchMedia('(max-width: 900px)').matches; }
+    function applySidebar() {
+      if (isMobile()) { sidebar.hidden = !sidebarOpen; }
+      else { sidebar.hidden = false; sidebarOpen = false; }
+    }
+    menuBtn.addEventListener('click', function () { sidebarOpen = !sidebarOpen; applySidebar(); });
+    window.addEventListener('resize', applySidebar);
+    applySidebar();
+
+    // copy buttons
+    document.querySelectorAll('.code').forEach(function (block) {
+      var btn = block.querySelector('.copy');
+      var pre = block.querySelector('pre');
+      if (!btn || !pre) return;
+      btn.addEventListener('click', function () {
+        navigator.clipboard.writeText(pre.innerText).then(function () {
+          var prev = btn.textContent;
+          btn.textContent = 'Copiato!';
+          setTimeout(function () { btn.textContent = prev; }, 1400);
+        });
+      });
+    });
+
+    // sidebar links: close sidebar on mobile after click
+    var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar nav a'));
+    links.forEach(function (a) {
+      a.addEventListener('click', function () { if (isMobile()) { sidebarOpen = false; applySidebar(); } });
+    });
+
+    // scrollspy: highlight the section currently in view
+    var sections = links
+      .map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); })
+      .filter(Boolean);
+    function onScroll() {
+      if (langIt.hidden) return;
+      var top = window.scrollY + 90;
+      var current = sections[0];
+      for (var i = 0; i < sections.length; i++) {
+        if (sections[i].offsetTop <= top) current = sections[i];
+      }
+      links.forEach(function (a) {
+        a.classList.toggle('active', current && a.getAttribute('href') === '#' + current.id);
+      });
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  })();
+</script>
+</body>
+</html>
