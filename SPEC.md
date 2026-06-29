@@ -1009,7 +1009,7 @@ Mockito, Instancio. Build con unit test (Surefire) e integration test `*IT`
 - Helper consumatore di alto livello (§32): `TaskWatcher`
   (package `org.tasktelemetry.watch`) che incapsula subscribe-per-nome, attesa,
   monitor di liveness, cattura `executionId` e rilevamento del terminale dietro
-  tre metodi: `onProgress`, `awaitStart`, `awaitCompletion`.
+  pochi metodi: `onProgress`, `onHeartbeat`, `awaitStart`, `awaitCompletion`.
 - Transport cross-process localhost (§24): package
   `org.tasktelemetry.transport.crossprocess`, **autonomo e cancellabile** (il core
   non ne dipende). Topologia a **2 attori, niente hub**: il task fa da server
@@ -1165,6 +1165,7 @@ tutto questo.
 ```java
 try (TaskWatcher watcher = new TaskWatcher(transport, "FILE_UPLOAD")) {
     watcher.onProgress(percent -> progressBar.setValue(percent));
+    watcher.onHeartbeat(() -> log("task ancora vivo"));
     if (!watcher.awaitStart(Duration.ofSeconds(5))) {
         return; // nessun task in corso entro il timeout
     }
@@ -1175,7 +1176,10 @@ try (TaskWatcher watcher = new TaskWatcher(transport, "FILE_UPLOAD")) {
 
 - costruttori: `(TaskTransport, taskName)` con soglie di default (stale 5s, lost
   15s) e `(TaskTransport, taskName, staleAfter, lostAfter)`;
-- `onProgress(IntConsumer)`: callback con la percentuale di ogni evento progress;
+- `onProgress(IntConsumer)`: callback con la percentuale di ogni evento `PROGRESS`;
+- `onHeartbeat(Runnable)`: callback invocato **solo** sugli eventi `HEARTBEAT`,
+  separato dai progress; segnala che il task è ancora vivo. In ogni caso tutti
+  gli eventi (heartbeat compresi) alimentano internamente il monitor di liveness;
 - `awaitStart(Duration)`: `true` se il task è in corso, `false` se non compare
   entro il timeout (nessuna eccezione da gestire);
 - `awaitCompletion()`: blocca fino al terminale **o** finché il task è dato per

@@ -40,6 +40,7 @@ public final class ClientProcess {
              TaskWatcher watcher = new TaskWatcher(transport, ExampleConfig.TASK_NAME)) {
 
             watcher.onProgress(percent -> System.out.println("  upload at " + percent + "%"));
+            watcher.onHeartbeat(() -> System.out.println("  heartbeat (task alive)"));
 
             if (!watcher.awaitStart(DETECT_TIMEOUT)) {
                 System.out.println("No upload in progress within the timeout.");

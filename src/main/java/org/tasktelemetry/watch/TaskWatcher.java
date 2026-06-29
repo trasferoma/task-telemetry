@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntConsumer;
 
 import org.tasktelemetry.event.TaskEvent;
+import org.tasktelemetry.event.TaskEventType;
 import org.tasktelemetry.listener.ListenerHandle;
 import org.tasktelemetry.listener.ListenerRegistration;
 import org.tasktelemetry.listener.TaskAwaitTimeoutException;
@@ -50,6 +51,8 @@ public final class TaskWatcher implements AutoCloseable {
 
     private IntConsumer progressCallback = percent -> {
     };
+    private Runnable heartbeatCallback = () -> {
+    };
     private ListenerHandle handle;
 
     public TaskWatcher(TaskTransport transport, String taskName) {
@@ -71,6 +74,20 @@ public final class TaskWatcher implements AutoCloseable {
     public TaskWatcher onProgress(IntConsumer progressCallback) {
         this.progressCallback =
                 Objects.requireNonNull(progressCallback, "progressCallback must not be null");
+        return this;
+    }
+
+    /**
+     * Registers a callback invoked on every {@code HEARTBEAT} event, kept separate
+     * from {@link #onProgress}. The heartbeat carries no payload of its own; it
+     * only signals that the task is still alive.
+     *
+     * @param heartbeatCallback the callback, required
+     * @return this watcher
+     */
+    public TaskWatcher onHeartbeat(Runnable heartbeatCallback) {
+        this.heartbeatCallback =
+                Objects.requireNonNull(heartbeatCallback, "heartbeatCallback must not be null");
         return this;
     }
 
@@ -126,6 +143,10 @@ public final class TaskWatcher implements AutoCloseable {
     private void onEvent(TaskEvent event) {
         executionId.compareAndSet(null, event.executionId());
         monitor.onEvent(event);
+
+        if (event.type() == TaskEventType.HEARTBEAT) {
+            heartbeatCallback.run();
+        }
 
         Integer progress = event.progress();
         if (progress != null) {

@@ -8,6 +8,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
 
@@ -67,6 +68,33 @@ class TaskWatcherTest {
         }
 
         assertThat(progressSeen).containsExactly(25, 75);
+    }
+
+    @Test
+    void onHeartbeatIsInvokedForHeartbeatEventsOnly() {
+        ReplayTransport transport = new ReplayTransport(
+                event(0, TaskEventType.STARTED, null),
+                event(1, TaskEventType.HEARTBEAT, null),
+                event(2, TaskEventType.PROGRESS, 50),
+                event(3, TaskEventType.HEARTBEAT, null));
+        AtomicInteger beats = new AtomicInteger();
+        List<Integer> progressSeen = new ArrayList<>();
+
+        try (TaskWatcher watcher = new TaskWatcher(transport, TASK_NAME)) {
+            watcher.onHeartbeat(beats::incrementAndGet);
+            watcher.onProgress(progressSeen::add);
+            watcher.awaitStart(AMPLE_TIMEOUT);
+        }
+
+        assertThat(beats).hasValue(2);
+        assertThat(progressSeen).containsExactly(50);
+    }
+
+    @Test
+    void onHeartbeatRejectsNullCallback() {
+        try (TaskWatcher watcher = new TaskWatcher(new ReplayTransport(), TASK_NAME)) {
+            assertThatNullPointerException().isThrownBy(() -> watcher.onHeartbeat(null));
+        }
     }
 
     @Test
