@@ -236,20 +236,6 @@
   .dot.r { background: var(--red); } .dot.b { background: var(--blue); }
   .dot.m { background: var(--muted); }
 
-  /* ---------- work in progress ---------- */
-  .wip {
-    max-width: 640px; margin: 90px auto; padding: 0 24px; text-align: center;
-  }
-  .wip .big { font-size: 3rem; margin-bottom: 8px; }
-  .wip h1 { font-size: 1.8rem; }
-  .wip p { margin: 12px auto 28px; color: var(--muted); max-width: 48ch; }
-  .btn {
-    display: inline-block; font-weight: 600; font-size: 0.95rem;
-    background: var(--accent); color: #fff; border: 0; border-radius: var(--radius);
-    padding: 11px 20px; cursor: pointer;
-  }
-  .btn:hover { text-decoration: none; filter: brightness(1.06); }
-
   [hidden] { display: none !important; }
 
   footer {
@@ -709,18 +695,427 @@ handle.stop();</pre>
   </main>
 </div>
 
-<!-- ================= ENGLISH (WIP) ================= -->
-<div id="lang-en" hidden>
-  <div class="wip">
-    <div class="big" aria-hidden="true">🚧</div>
-    <h1>English version — work in progress</h1>
-    <p>The English translation of this guide isn't ready yet. The Italian version is complete and up to date.</p>
-    <button class="btn" id="back-it" type="button">← Torna alla versione italiana</button>
-  </div>
+<!-- ================= ENGLISH ================= -->
+<div class="layout" id="lang-en" hidden>
+  <aside class="sidebar" id="sidebar-en">
+    <nav>
+      <h4>Getting started</h4>
+      <a href="#en-intro">What it is</a>
+      <a href="#en-concepts">Core concepts</a>
+      <a href="#en-installation">Installation</a>
+      <a href="#en-hello">Minimal example</a>
+      <h4>The task (producer)</h4>
+      <a href="#en-emitting">Emitting events</a>
+      <a href="#en-heartbeat">Automatic heartbeat</a>
+      <a href="#en-ending">Completion / failure</a>
+      <h4>The observer (consumer)</h4>
+      <a href="#en-listening">Listening to events</a>
+      <a href="#en-filters">Filtering</a>
+      <a href="#en-watcher">TaskWatcher</a>
+      <a href="#en-status">Liveness status</a>
+      <h4>Advanced</h4>
+      <a href="#en-processes">Same JVM or separate processes</a>
+      <a href="#en-config">Configuration</a>
+      <a href="#en-errors">Error handling</a>
+      <a href="#en-events">Event types</a>
+      <a href="#en-nongoals">What it does NOT do</a>
+    </nav>
+  </aside>
+
+  <main class="content" id="top-en">
+
+    <section id="en-intro">
+      <div class="eyebrow">User guide</div>
+      <h1>Live telemetry for your asynchronous tasks</h1>
+      <p class="lead">
+        <strong>task-telemetry</strong> is a small Java library that lets a long-running
+        or asynchronous process (an import, an upload, a scheduled job…) report <em>live</em>
+        progress, liveness and final outcome to one or more observers.
+      </p>
+      <p>
+        The task <strong>does not know who is listening</strong>: it just emits events.
+        An observer registers and receives them. This guide shows, step by step, what you can do
+        without having to understand the internals of the library.
+      </p>
+      <div class="note">
+        <strong>In two lines:</strong> the <em>task</em> opens a <code>TaskReporter</code> and calls
+        <code>progress(...)</code>, <code>info(...)</code>, <code>completed(...)</code>.
+        The observer registers with <code>listen()</code> or, more conveniently, with
+        <code>TaskWatcher</code>.
+      </div>
+    </section>
+
+    <section id="en-concepts">
+      <h2>Core concepts</h2>
+      <ul>
+        <li><strong>Task</strong>: the <em>kind</em> of work, identified by a name (for example <code>"IMPORT_CLIENTS"</code>).</li>
+        <li><strong>Execution</strong>: one concrete run of that task, with an automatically generated <code>executionId</code>.</li>
+        <li><strong>correlationKey</strong> (optional): an application-domain reference attached to the execution (for example a file name or business id).</li>
+        <li><strong>Event</strong> (<code>TaskEvent</code>): what the task emits — start, progress, messages, heartbeat, completion.</li>
+        <li><strong>Reporter</strong> (<code>TaskReporter</code>): the object used by the task to emit events.</li>
+        <li><strong>Listener</strong>: the function that receives events on the observer side.</li>
+        <li><strong>Transport</strong>: the "pipe" used by events (in memory in the same JVM, or via socket between processes).</li>
+        <li><strong>Runtime</strong> (<code>TaskTelemetry</code>): the entry point used to create reporters and register observers.</li>
+      </ul>
+    </section>
+
+    <section id="en-installation">
+      <h2>Installation</h2>
+      <p>Requires <strong>Java 17</strong>. Add the Maven dependency:</p>
+      <div class="code">
+        <div class="bar"><span class="file">pom.xml</span><button class="copy" type="button">Copy</button></div>
+<pre><span class="t">&lt;dependency&gt;</span>
+    &lt;groupId&gt;org.tasktelemetry&lt;/groupId&gt;
+    &lt;artifactId&gt;task-telemetry&lt;/artifactId&gt;
+    &lt;version&gt;1.0-SNAPSHOT&lt;/version&gt;
+<span class="t">&lt;/dependency&gt;</span></pre>
+      </div>
+      <p>The core has no runtime dependencies (only the Java standard library).</p>
+    </section>
+
+    <section id="en-hello">
+      <h2>Minimal example</h2>
+      <p>In the same program: create the runtime, register a listener, run a task.</p>
+      <div class="code">
+        <div class="bar"><span class="file">HelloTelemetry.java</span><button class="copy" type="button">Copy</button></div>
+<pre><span class="k">try</span> (<span class="t">TaskTelemetry</span> telemetry = <span class="t">TaskTelemetry</span>.defaults()) {
+
+    <span class="c">// 1) the observer registers</span>
+    telemetry.listen()
+        .taskName(<span class="s">"GREETING"</span>)
+        .onEvent(event -> <span class="t">System</span>.out.println(event.type() + <span class="s">" "</span> + event.message()))
+        .start();
+
+    <span class="c">// 2) the task emits its events</span>
+    <span class="k">try</span> (<span class="t">TaskReporter</span> reporter = telemetry.start(<span class="s">"GREETING"</span>)) {
+        reporter.progress(<span class="s">0</span>, <span class="s">"started"</span>);
+        reporter.progress(<span class="s">100</span>, <span class="s">"done"</span>);
+        reporter.completed(<span class="s">"completed"</span>);
+    }
+}</pre>
+      </div>
+      <p>
+        <code>TaskTelemetry.defaults()</code> creates a ready-to-use runtime (in-memory transport,
+        automatic heartbeat every 5 seconds). Both producer and observer use the
+        <strong>same</strong> <code>telemetry</code> instance — that is what connects them.
+        Later, we will see how to connect them when they are separate components or processes.
+      </p>
+    </section>
+
+    <hr>
+
+    <section id="en-emitting">
+      <h2>Emitting events (the task)</h2>
+      <p>
+        The task obtains a <code>TaskReporter</code> from <code>telemetry.start(...)</code> and uses it with
+        <code>try-with-resources</code>. Opening the reporter automatically emits a <code>STARTED</code>
+        event; closing it without a terminal event emits <code>CANCELLED</code> by default.
+      </p>
+      <div class="code">
+        <div class="bar"><span class="file">Producer</span><button class="copy" type="button">Copy</button></div>
+<pre><span class="c">// "IMPORT_CLIENTS" = task name; "file.csv" = optional correlationKey</span>
+<span class="k">try</span> (<span class="t">TaskReporter</span> reporter = telemetry.start(<span class="s">"IMPORT_CLIENTS"</span>, <span class="s">"file.csv"</span>)) {
+
+    reporter.progress(<span class="s">0</span>, <span class="s">"Import started"</span>);   <span class="c">// percentage 0–100 + message</span>
+    reporter.info(<span class="s">"Reading file"</span>);              <span class="c">// informational message</span>
+    reporter.warning(<span class="s">"Line 42 skipped"</span>);        <span class="c">// non-blocking warning</span>
+    reporter.progress(<span class="s">50</span>, <span class="s">"Halfway done"</span>);
+    reporter.progress(<span class="s">100</span>, <span class="s">"Completed"</span>);
+
+    reporter.completed(<span class="s">"Import successful"</span>);      <span class="c">// successful terminal event</span>
+}</pre>
+      </div>
+      <p>Available reporter methods:</p>
+      <ul>
+        <li><code>progress(int percent, String message)</code> — progress from 0 to 100.</li>
+        <li><code>info(String)</code> / <code>warning(String)</code> — messages.</li>
+        <li><code>completed(String)</code> — successful completion.</li>
+        <li><code>failed(Throwable)</code> — completion with error.</li>
+        <li><code>cancelled(String)</code> — voluntary interruption.</li>
+      </ul>
+      <div class="note">
+        <strong>The task does not know who is listening.</strong> Emit and move on: if nobody is listening,
+        events are simply not delivered (best-effort delivery, no queue, no history).
+      </div>
+    </section>
+
+    <section id="en-heartbeat">
+      <h2>Automatic heartbeat</h2>
+      <p>
+        While the reporter is open and the task is <em>silent</em> (it emits nothing), the library
+        automatically sends a <code>HEARTBEAT</code> event at regular intervals. It means
+        "I am still alive". <strong>You do not call it manually</strong>. Normal events
+        (<code>progress</code>, <code>info</code>, and so on) already count as liveness signals
+        and postpone the next heartbeat.
+      </p>
+      <p>The interval is configured on the runtime (default: 5 seconds):</p>
+      <div class="code">
+        <div class="bar"><span class="file">Heartbeat every 2 seconds</span><button class="copy" type="button">Copy</button></div>
+<pre><span class="t">TaskTelemetry</span> telemetry = <span class="t">TaskTelemetry</span>.builder()
+        .heartbeatInterval(<span class="t">Duration</span>.ofSeconds(<span class="s">2</span>))
+        .build();</pre>
+      </div>
+    </section>
+
+    <section id="en-ending">
+      <h2>Ending: completed, failed, cancelled</h2>
+      <p>A task always ends with a <em>terminal</em> event. After a terminal event, the reporter cannot emit anymore.</p>
+      <div class="code">
+        <div class="bar"><span class="file">Success or failure</span><button class="copy" type="button">Copy</button></div>
+<pre><span class="k">try</span> (<span class="t">TaskReporter</span> reporter = telemetry.start(<span class="s">"EXPORT"</span>)) {
+    runWork(reporter);
+    reporter.completed(<span class="s">"Export successful"</span>);
+} <span class="k">catch</span> (<span class="t">Exception</span> e) {
+    <span class="c">// communicate the error with reporter.failed(e)</span>
+    <span class="c">// when the reporter is still available in your control flow</span>
+}</pre>
+      </div>
+      <p>
+        With <code>failed(exception)</code>, the <code>FAILED</code> event carries
+        <code>exception.toString()</code> as its <code>message</code> (exception type + message).
+        It does not carry a structured object or stack trace, so the data travels the same way
+        in-memory and across processes.
+      </p>
+      <div class="note">
+        <strong>Closing without a terminal event.</strong> If the reporter is closed (for example at the end of
+        <code>try-with-resources</code>) without <code>completed</code>/<code>failed</code>,
+        <code>CANCELLED</code> is emitted by default. You can change that behavior in
+        <a href="#en-config">Configuration</a>.
+      </div>
+    </section>
+
+    <hr>
+
+    <section id="en-listening">
+      <h2>Listening to events (the observer)</h2>
+      <p>Register with <code>listen()</code>, choose what to listen to and provide a function that receives each event:</p>
+      <div class="code">
+        <div class="bar"><span class="file">Basic consumer</span><button class="copy" type="button">Copy</button></div>
+<pre><span class="t">ListenerHandle</span> handle = telemetry.listen()
+        .taskName(<span class="s">"IMPORT_CLIENTS"</span>)
+        .onEvent(event -> {
+            <span class="t">System</span>.out.println(event.type() + <span class="s">" #"</span> + event.sequenceNumber());
+            <span class="k">if</span> (event.progress() != <span class="k">null</span>) {
+                updateProgressBar(event.progress());
+            }
+        })
+        .start();
+
+<span class="c">// when you no longer need it:</span>
+handle.stop();</pre>
+      </div>
+      <p>
+        Each event is a <code>TaskEvent</code> with: <code>taskName</code>, <code>executionId</code>,
+        <code>correlationKey</code>, <code>type</code>, <code>timestamp</code>,
+        <code>sequenceNumber</code> (monotonic number useful to detect gaps), and optional
+        <code>message</code> and <code>progress</code>.
+      </p>
+    </section>
+
+    <section id="en-filters">
+      <h2>Filtering events</h2>
+      <p>You can restrict what you receive. Filters are combined with AND; unset filters match everything.</p>
+      <div class="code">
+        <div class="bar"><span class="file">Filters</span><button class="copy" type="button">Copy</button></div>
+<pre>telemetry.listen()
+        .taskName(<span class="s">"IMPORT_CLIENTS"</span>)
+        .correlationKey(<span class="s">"file.csv"</span>)
+        .eventType(<span class="t">TaskEventType</span>.COMPLETED)   <span class="c">// only terminal success events</span>
+        .onEvent(event -> ...)
+        .start();</pre>
+      </div>
+      <p>Available filters: <code>taskName</code>, <code>executionId</code>, <code>correlationKey</code>, <code>eventType</code>.</p>
+    </section>
+
+    <section id="en-watcher">
+      <h2>TaskWatcher: the convenient way to follow a task</h2>
+      <p>
+        If your goal is "wait until the task is running, show me progress, tell me when it ends",
+        <code>TaskWatcher</code> does that for you: no manual listener plumbing, no manual status handling.
+      </p>
+      <div class="code">
+        <div class="bar"><span class="file">Consumer with TaskWatcher</span><button class="copy" type="button">Copy</button></div>
+<pre><span class="k">try</span> (<span class="t">TaskWatcher</span> watcher = <span class="k">new</span> <span class="t">TaskWatcher</span>(transport, <span class="s">"IMPORT_CLIENTS"</span>)) {
+
+    watcher.onProgress(percent -> updateProgressBar(percent));
+    watcher.onHeartbeat(() -> log(<span class="s">"task is still alive"</span>));
+
+    <span class="c">// wait up to 5s for the task to be running</span>
+    <span class="k">if</span> (!watcher.awaitStart(<span class="t">Duration</span>.ofSeconds(<span class="s">5</span>))) {
+        <span class="t">System</span>.out.println(<span class="s">"No running task"</span>);
+        <span class="k">return</span>;
+    }
+
+    <span class="c">// blocks until it ends (or until it is considered lost)</span>
+    <span class="t">TaskExecutionStatus</span> outcome = watcher.awaitCompletion();
+    <span class="t">System</span>.out.println(<span class="s">"Outcome: "</span> + outcome); <span class="c">// COMPLETED / FAILED / CANCELLED / LOST</span>
+}</pre>
+      </div>
+      <ul>
+        <li><code>onProgress(percent)</code> — called for every progress event.</li>
+        <li><code>onHeartbeat()</code> — called for every heartbeat (separate from progress).</li>
+        <li><code>awaitStart(timeout)</code> — <code>true</code> if the task is running, <code>false</code> if it does not appear in time.</li>
+        <li><code>awaitCompletion()</code> — blocks until completion and returns the final status.</li>
+      </ul>
+      <div class="note">
+        <strong>Liveness is automatic.</strong> You do not check heartbeats manually: if the task dies
+        and stops emitting, <code>awaitCompletion()</code> returns <code>LOST</code> instead of blocking forever.
+      </div>
+    </section>
+
+    <section id="en-status">
+      <h2>Task liveness status</h2>
+      <p>The library derives an observable consumer-side status from the event stream:</p>
+      <div class="chips">
+        <span class="chip"><span class="dot g"></span>RUNNING — receiving events, alive</span>
+        <span class="chip"><span class="dot a"></span>STALE — silence beyond the threshold</span>
+        <span class="chip"><span class="dot r"></span>LOST — too much silence, probably dead</span>
+        <span class="chip"><span class="dot b"></span>COMPLETED / FAILED / CANCELLED — finished</span>
+      </div>
+      <p>
+        With <code>TaskWatcher</code>, this is already handled (you get it from
+        <code>awaitCompletion()</code>). If you need to inspect it directly, use
+        <code>TaskHeartbeatMonitor</code>, configuring <code>staleAfter</code> and
+        <code>lostAfter</code>.
+      </p>
+      <div class="code">
+        <div class="bar"><span class="file">Liveness thresholds</span><button class="copy" type="button">Copy</button></div>
+<pre><span class="c">// stale after 15s of silence, lost after 60s</span>
+<span class="k">new</span> <span class="t">TaskWatcher</span>(transport, <span class="s">"IMPORT_CLIENTS"</span>,
+        <span class="t">Duration</span>.ofSeconds(<span class="s">15</span>), <span class="t">Duration</span>.ofSeconds(<span class="s">60</span>));</pre>
+      </div>
+    </section>
+
+    <hr>
+
+    <section id="en-processes">
+      <h2>Same JVM or separate processes</h2>
+      <p>
+        The key point: producer and consumer communicate <strong>only if they share the same
+        transport</strong>. It is not enough for both of them to use <code>task-telemetry</code>.
+      </p>
+
+      <h3>Same JVM</h3>
+      <p>Share the same <code>TaskTelemetry</code> instance (or the same transport) between producer and consumer, as in the minimal example.</p>
+
+      <h3>Separate processes (same machine)</h3>
+      <p>
+        Two-actor model, <strong>no broker</strong>: the <em>task acts as the server</em>
+        (opens a port and emits to connected clients), while the <em>client connects</em>
+        and receives events from that moment on.
+      </p>
+      <div class="code">
+        <div class="bar"><span class="file">Task process (server)</span><button class="copy" type="button">Copy</button></div>
+<pre><span class="k">try</span> (<span class="t">SocketServerTaskTransport</span> transport = <span class="k">new</span> <span class="t">SocketServerTaskTransport</span>(<span class="s">5555</span>);
+     <span class="t">TaskTelemetry</span> telemetry = <span class="t">TaskTelemetry</span>.builder()
+             .transport(transport)
+             .heartbeatInterval(<span class="t">Duration</span>.ofSeconds(<span class="s">2</span>))
+             .build()) {
+
+    <span class="k">try</span> (<span class="t">TaskReporter</span> reporter = telemetry.start(<span class="s">"UPLOAD"</span>, <span class="s">"photo.zip"</span>)) {
+        reporter.progress(<span class="s">0</span>, <span class="s">"started"</span>);
+        <span class="c">// ... real work ...</span>
+        reporter.completed(<span class="s">"done"</span>);
+    }
+}</pre>
+      </div>
+      <div class="code">
+        <div class="bar"><span class="file">Client process</span><button class="copy" type="button">Copy</button></div>
+<pre><span class="k">try</span> (<span class="t">SocketClientTaskTransport</span> transport =
+             <span class="k">new</span> <span class="t">SocketClientTaskTransport</span>(<span class="s">"localhost"</span>, <span class="s">5555</span>);
+     <span class="t">TaskWatcher</span> watcher = <span class="k">new</span> <span class="t">TaskWatcher</span>(transport, <span class="s">"UPLOAD"</span>)) {
+
+    watcher.onProgress(p -> <span class="t">System</span>.out.println(<span class="s">"upload at "</span> + p + <span class="s">"%"</span>));
+    watcher.awaitStart(<span class="t">Duration</span>.ofSeconds(<span class="s">30</span>));
+    <span class="t">System</span>.out.println(watcher.awaitCompletion());
+}</pre>
+      </div>
+      <div class="note warn">
+        <strong>Mind the startup order:</strong> with this model, the client connects to a task
+        that has already opened the port. If the client starts before the task server is reachable,
+        the connection fails with <code>TaskUnreachableException</code> (handle it at application level:
+        retry or report the failure). Events emitted before the connection are <strong>not replayed</strong>.
+      </div>
+    </section>
+
+    <section id="en-config">
+      <h2>Configuration (builder)</h2>
+      <p>Everything is configured through the builder, with no configuration files and no annotations.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Method</th><th>Purpose</th><th>Default</th></tr></thead>
+          <tbody>
+            <tr><td><code>transport(...)</code></td><td>The event "pipe"</td><td>in-memory</td></tr>
+            <tr><td><code>heartbeatInterval(Duration)</code></td><td>Heartbeat frequency (<code>null</code> = disabled)</td><td>5 s</td></tr>
+            <tr><td><code>closeBehavior(...)</code></td><td>Event emitted when closing without a terminal event: <code>CANCELLED</code>, <code>FAILED</code> or <code>IGNORE</code></td><td>CANCELLED</td></tr>
+            <tr><td><code>logPrefix(String)</code></td><td>Prefix for internal log messages</td><td><code>task-telemetry -</code></td></tr>
+            <tr><td><code>errorHandler(...)</code></td><td>What to do if event delivery fails</td><td>log</td></tr>
+            <tr><td><code>executionIdGenerator(...)</code></td><td>How to generate the <code>executionId</code></td><td>UUID</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="en-errors">
+      <h2>Delivery error handling</h2>
+      <p>
+        If publishing an event fails (for example because an observer throws an exception),
+        the task does <strong>not</strong> fail by default: the error is logged and the work continues.
+        You can choose the policy:
+      </p>
+      <div class="code">
+        <div class="bar"><span class="file">Error policies</span><button class="copy" type="button">Copy</button></div>
+<pre><span class="t">TaskTelemetry</span>.builder()
+    .errorHandler(<span class="t">TaskTelemetryErrorHandler</span>.ignore())   <span class="c">// silent</span>
+    <span class="c">// .errorHandler(TaskTelemetryErrorHandler.logging())  // default: log</span>
+    <span class="c">// .errorHandler(TaskTelemetryErrorHandler.rethrow())  // rethrow (the task fails)</span>
+    .build();</pre>
+      </div>
+    </section>
+
+    <section id="en-events">
+      <h2>Event types and transported data</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Type</th><th>When</th><th>Useful data</th></tr></thead>
+          <tbody>
+            <tr><td><code>STARTED</code></td><td>When the reporter opens</td><td>—</td></tr>
+            <tr><td><code>PROGRESS</code></td><td><code>progress(...)</code></td><td><code>progress</code> (0–100) + <code>message</code></td></tr>
+            <tr><td><code>INFO</code></td><td><code>info(...)</code></td><td><code>message</code></td></tr>
+            <tr><td><code>WARNING</code></td><td><code>warning(...)</code></td><td><code>message</code></td></tr>
+            <tr><td><code>HEARTBEAT</code></td><td>Automatic, during silence</td><td>—</td></tr>
+            <tr><td><code>COMPLETED</code></td><td><code>completed(...)</code></td><td><code>message</code></td></tr>
+            <tr><td><code>FAILED</code></td><td><code>failed(...)</code></td><td><code>message</code> (<code>Throwable.toString()</code>)</td></tr>
+            <tr><td><code>CANCELLED</code></td><td><code>cancelled(...)</code> or close without terminal event</td><td><code>message</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note">
+        Every event carries only scalar data plus <code>message</code> and <code>progress</code>:
+        they travel identically in the same JVM and between processes. If the observer needs
+        structured data, put it in <code>message</code> (for example a JSON string interpreted by the consumer).
+      </div>
+    </section>
+
+    <section id="en-nongoals">
+      <h2>What it does NOT do (by design)</h2>
+      <p>To stay simple and predictable, the library does <strong>not</strong>:</p>
+      <ul>
+        <li>execute or schedule tasks (it only observes them);</li>
+        <li>guarantee delivery or keep history (it is best-effort and live);</li>
+        <li>allow commands from the consumer to the task (communication is outbound only);</li>
+        <li>act as a message broker or reactive library.</li>
+      </ul>
+      <p style="margin-top:28px;color:var(--muted)">
+        That is all. Open a reporter, emit events, observe them. Build useful things, preferably without inventing another scheduler by accident.
+      </p>
+    </section>
+
+  </main>
 </div>
 
 <footer>
-  task-telemetry · guida d'uso · Java 17
+  <span id="footerText">task-telemetry · guida d'uso · Java 17</span>
 </footer>
 
 <script>
@@ -729,72 +1124,153 @@ handle.stop();</pre>
     var langEn = document.getElementById('lang-en');
     var btnIt = document.getElementById('btn-it');
     var btnEn = document.getElementById('btn-en');
-    var backIt = document.getElementById('back-it');
     var menuBtn = document.getElementById('menuBtn');
-    var sidebar = document.getElementById('sidebar');
+    var sidebarIt = document.getElementById('sidebar');
+    var sidebarEn = document.getElementById('sidebar-en');
+    var brand = document.querySelector('.brand');
+    var brandTag = document.querySelector('.brand .tag');
+    var footerText = document.getElementById('footerText');
+
+    var currentLang = 'it';
+    var sidebarOpen = false;
+
+    function isMobile() {
+      return window.matchMedia('(max-width: 900px)').matches;
+    }
+
+    function activeSidebar() {
+      return currentLang === 'it' ? sidebarIt : sidebarEn;
+    }
+
+    function allSidebarLinks() {
+      return Array.prototype.slice.call(document.querySelectorAll('.sidebar nav a'));
+    }
+
+    function activeLinks() {
+      var sidebar = activeSidebar();
+      if (!sidebar) return [];
+      return Array.prototype.slice.call(sidebar.querySelectorAll('nav a'));
+    }
+
+    function applySidebar() {
+      if (isMobile()) {
+        sidebarIt.hidden = !(currentLang === 'it' && sidebarOpen);
+        sidebarEn.hidden = !(currentLang === 'en' && sidebarOpen);
+        return;
+      }
+
+      sidebarIt.hidden = currentLang !== 'it';
+      sidebarEn.hidden = currentLang !== 'en';
+      sidebarOpen = false;
+    }
 
     function setLang(lang) {
+      currentLang = lang;
+      sidebarOpen = false;
+
       var it = lang === 'it';
       langIt.hidden = !it;
       langEn.hidden = it;
       btnIt.classList.toggle('active', it);
       btnEn.classList.toggle('active', !it);
-      menuBtn.style.display = it ? '' : 'none';
+
+      document.documentElement.lang = it ? 'it' : 'en';
+      menuBtn.textContent = it ? '☰ Indice' : '☰ Contents';
+      menuBtn.setAttribute('aria-label', it ? 'Mostra indice' : 'Show contents');
+      brandTag.textContent = it ? 'guida' : 'guide';
+      footerText.textContent = it
+        ? 'task-telemetry · guida d’uso · Java 17'
+        : 'task-telemetry · user guide · Java 17';
+
+      applySidebar();
       window.scrollTo(0, 0);
+      onScroll();
     }
 
     btnIt.addEventListener('click', function () { setLang('it'); });
     btnEn.addEventListener('click', function () { setLang('en'); });
-    backIt.addEventListener('click', function () { setLang('it'); });
 
-    // mobile sidebar toggle
-    var sidebarOpen = false;
-    function isMobile() { return window.matchMedia('(max-width: 900px)').matches; }
-    function applySidebar() {
-      if (isMobile()) { sidebar.hidden = !sidebarOpen; }
-      else { sidebar.hidden = false; sidebarOpen = false; }
-    }
-    menuBtn.addEventListener('click', function () { sidebarOpen = !sidebarOpen; applySidebar(); });
+    brand.addEventListener('click', function (event) {
+      event.preventDefault();
+      window.scrollTo(0, 0);
+    });
+
+    menuBtn.addEventListener('click', function () {
+      sidebarOpen = !sidebarOpen;
+      applySidebar();
+    });
+
     window.addEventListener('resize', applySidebar);
-    applySidebar();
 
     // copy buttons
     document.querySelectorAll('.code').forEach(function (block) {
       var btn = block.querySelector('.copy');
       var pre = block.querySelector('pre');
       if (!btn || !pre) return;
+
       btn.addEventListener('click', function () {
-        navigator.clipboard.writeText(pre.innerText).then(function () {
-          var prev = btn.textContent;
-          btn.textContent = 'Copiato!';
+        var prev = btn.textContent;
+        var copied = currentLang === 'it' ? 'Copiato!' : 'Copied!';
+
+        function done() {
+          btn.textContent = copied;
           setTimeout(function () { btn.textContent = prev; }, 1400);
-        });
+        }
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(pre.innerText).then(done);
+          return;
+        }
+
+        var area = document.createElement('textarea');
+        area.value = pre.innerText;
+        area.setAttribute('readonly', '');
+        area.style.position = 'absolute';
+        area.style.left = '-9999px';
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand('copy');
+        document.body.removeChild(area);
+        done();
       });
     });
 
     // sidebar links: close sidebar on mobile after click
-    var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar nav a'));
-    links.forEach(function (a) {
-      a.addEventListener('click', function () { if (isMobile()) { sidebarOpen = false; applySidebar(); } });
+    allSidebarLinks().forEach(function (a) {
+      a.addEventListener('click', function () {
+        if (isMobile()) {
+          sidebarOpen = false;
+          applySidebar();
+        }
+      });
     });
 
-    // scrollspy: highlight the section currently in view
-    var sections = links
-      .map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); })
-      .filter(Boolean);
+    // scrollspy: highlight the section currently in view in the active language
     function onScroll() {
-      if (langIt.hidden) return;
+      var links = activeLinks();
+      if (!links.length) return;
+
+      var sections = links
+        .map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); })
+        .filter(Boolean);
+
       var top = window.scrollY + 90;
       var current = sections[0];
+
       for (var i = 0; i < sections.length; i++) {
         if (sections[i].offsetTop <= top) current = sections[i];
       }
+
+      allSidebarLinks().forEach(function (a) { a.classList.remove('active'); });
+
       links.forEach(function (a) {
         a.classList.toggle('active', current && a.getAttribute('href') === '#' + current.id);
       });
     }
+
     window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
+
+    setLang('it');
   })();
 </script>
 </body>
