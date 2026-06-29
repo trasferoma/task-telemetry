@@ -7,7 +7,7 @@ import java.time.Duration;
 
 import org.junit.jupiter.api.Test;
 
-import org.tasktelemetry.transport.InMemoryTaskTransport;
+import org.tasktelemetry.transport.inmemory.InMemoryTaskTransport;
 
 class ListenerRegistrationAwaitTest {
 

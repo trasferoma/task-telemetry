@@ -3,7 +3,7 @@ package org.tasktelemetry.example.clientserver.example2;
 import java.time.Duration;
 
 import org.tasktelemetry.TaskTelemetry;
-import org.tasktelemetry.transport.InMemoryTaskTransport;
+import org.tasktelemetry.transport.inmemory.InMemoryTaskTransport;
 import org.tasktelemetry.transport.TaskTransport;
 
 /**

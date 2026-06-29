@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.tasktelemetry.event.TaskEvent;
 import org.tasktelemetry.event.TaskEventType;
 import org.tasktelemetry.listener.ListenerHandle;
-import org.tasktelemetry.transport.InMemoryTaskTransport;
+import org.tasktelemetry.transport.inmemory.InMemoryTaskTransport;
 
 /**
  * End-to-end integration test of {@link TaskTelemetry} with the real

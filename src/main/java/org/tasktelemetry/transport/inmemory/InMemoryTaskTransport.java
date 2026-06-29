@@ -1,4 +1,4 @@
-package org.tasktelemetry.transport;
+package org.tasktelemetry.transport.inmemory;
 
 import java.util.List;
 import java.util.Objects;
@@ -6,6 +6,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.tasktelemetry.event.TaskEvent;
 import org.tasktelemetry.listener.TaskListener;
+import org.tasktelemetry.transport.TaskTransport;
 
 /**
  * In-memory {@link TaskTransport} that delivers each published event

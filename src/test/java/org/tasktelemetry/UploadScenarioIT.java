@@ -9,7 +9,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.Test;
 
 import org.tasktelemetry.monitor.TaskExecutionStatus;
-import org.tasktelemetry.transport.InMemoryTaskTransport;
+import org.tasktelemetry.transport.inmemory.InMemoryTaskTransport;
 import org.tasktelemetry.transport.TaskTransport;
 import org.tasktelemetry.watch.TaskWatcher;
 

@@ -12,7 +12,7 @@ import org.tasktelemetry.heartbeat.ExecutorHeartbeatScheduler;
 import org.tasktelemetry.heartbeat.HeartbeatScheduler;
 import org.tasktelemetry.listener.ListenerRegistration;
 import org.tasktelemetry.logging.JulTaskTelemetryLogger;
-import org.tasktelemetry.transport.InMemoryTaskTransport;
+import org.tasktelemetry.transport.inmemory.InMemoryTaskTransport;
 import org.tasktelemetry.transport.TaskTransport;
 
 /**

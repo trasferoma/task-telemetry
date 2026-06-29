@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.tasktelemetry.event.TaskEvent;
 import org.tasktelemetry.event.TaskEventType;
 import org.tasktelemetry.event.TaskExecutionDescriptor;
-import org.tasktelemetry.transport.InMemoryTaskTransport;
+import org.tasktelemetry.transport.inmemory.InMemoryTaskTransport;
 import org.tasktelemetry.transport.TaskTransport;
 
 /**

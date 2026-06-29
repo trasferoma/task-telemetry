@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.tasktelemetry.event.TaskEvent;
 import org.tasktelemetry.event.TaskEventType;
 import org.tasktelemetry.listener.TaskListener;
+import org.tasktelemetry.transport.inmemory.InMemoryTaskTransport;
 
 class InMemoryTaskTransportTest {
 

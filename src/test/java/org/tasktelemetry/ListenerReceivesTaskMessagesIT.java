@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import org.tasktelemetry.event.TaskEvent;
 import org.tasktelemetry.event.TaskEventType;
-import org.tasktelemetry.transport.InMemoryTaskTransport;
+import org.tasktelemetry.transport.inmemory.InMemoryTaskTransport;
 
 /**
  * Functional end-to-end test of the typical scenario: a listener subscribes

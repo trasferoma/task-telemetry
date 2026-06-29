@@ -12,7 +12,7 @@ import org.tasktelemetry.TaskReporter;
 import org.tasktelemetry.TaskReporterSettings;
 import org.tasktelemetry.event.TaskEventType;
 import org.tasktelemetry.event.TaskExecutionDescriptor;
-import org.tasktelemetry.transport.InMemoryTaskTransport;
+import org.tasktelemetry.transport.inmemory.InMemoryTaskTransport;
 
 /**
  * End-to-end integration test of the automatic heartbeat using the real
