@@ -812,10 +812,10 @@ Stato:
 - serializer SPI — **IMPLEMENTATO** (`TaskEventSerializer` +
   `TextTaskEventSerializer`);
 - utility per stato `RUNNING/STALE/LOST` lato listener — **IMPLEMENTATO** (§9.1);
-- esempi con processi Java separati sulla stessa macchina — **IMPLEMENTATO**
-  (`org.tasktelemetry.example.clientservercrossprocess.example1`: `HubProcess`,
-  `TaskProcess`, `ClientProcess`);
-- migliore gestione failure di transport (auto-reconnect, ecc.) — da fare.
+- esempi con due processi Java separati sulla stessa macchina — **IMPLEMENTATO**
+  (`org.tasktelemetry.example.clientservercrossprocess.example1`: `TaskProcess`,
+  `ClientProcess`);
+- migliore gestione failure di transport (auto-reconnect del client, ecc.) — da fare.
 
 ---
 
@@ -1012,11 +1012,14 @@ Mockito, Instancio. Build con unit test (Surefire) e integration test `*IT`
   tre metodi: `onProgress`, `awaitStart`, `awaitCompletion`.
 - Transport cross-process localhost (§24): package
   `org.tasktelemetry.transport.crossprocess`, **autonomo e cancellabile** (il core
-  non ne dipende). `CrossProcessTaskHub` (relay TCP localhost), `SocketTaskTransport`
-  (`TaskTransport` client), SPI `TaskEventSerializer` + default
+  non ne dipende). Topologia a **2 attori, niente hub**: il task fa da server
+  (`SocketServerTaskTransport`, fa il bind ed emette alla cieca verso i client
+  connessi) e il client si connette (`SocketClientTaskTransport`) ricevendo gli
+  eventi dal momento della connessione. SPI `TaskEventSerializer` + default
   `TextTaskEventSerializer` (formato a righe, campi Base64). Best-effort, niente
   replay, niente auto-reconnect in v1; il `payload` **non** viaggia sul filo
-  (passano i campi scalari + message + progress).
+  (passano i campi scalari + message + progress). Il client deve connettersi a un
+  task già avviato.
 - Esempio Java puro: `org.tasktelemetry.example.simple.OnlyTaskExample`.
 
 ### 30.2 Non ancora implementato

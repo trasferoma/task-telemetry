@@ -3,14 +3,18 @@ package org.tasktelemetry.example.clientservercrossprocess.example1;
 import java.time.Duration;
 
 import org.tasktelemetry.monitor.TaskExecutionStatus;
-import org.tasktelemetry.transport.crossprocess.SocketTaskTransport;
+import org.tasktelemetry.transport.crossprocess.SocketClientTaskTransport;
 import org.tasktelemetry.watch.TaskWatcher;
 
 /**
- * Client process (consumer): connects to the hub and observes the upload running
- * in another process. It waits up to a timeout for the upload to be in progress,
- * shows its progress, and waits for it to finish; if the task's heart stops, the
- * watcher returns {@code LOST}.
+ * Client process (consumer): connects to the task's server and observes the upload
+ * running in another process. It waits up to a timeout for the upload to be in
+ * progress, shows its progress, and waits for it to finish; if the task's heart
+ * stops, the watcher returns {@code LOST}.
+ *
+ * <p>The task process ({@link TaskProcess}) must already be running and listening
+ * before this client starts. If the connection fails, this process exits with a
+ * clear error message.
  */
 public final class ClientProcess {
 
@@ -20,7 +24,18 @@ public final class ClientProcess {
     }
 
     public static void main(String[] args) {
-        try (SocketTaskTransport transport = new SocketTaskTransport(ExampleConfig.HOST, ExampleConfig.PORT);
+        SocketClientTaskTransport transport;
+        try {
+            transport = new SocketClientTaskTransport(ExampleConfig.HOST, ExampleConfig.PORT);
+        } catch (IllegalStateException ex) {
+            System.err.println("Cannot connect to task server at "
+                    + ExampleConfig.HOST + ":" + ExampleConfig.PORT
+                    + " — make sure TaskProcess is running first.");
+            System.err.println("Cause: " + ex.getMessage());
+            return;
+        }
+
+        try (transport;
              TaskWatcher watcher = new TaskWatcher(transport, ExampleConfig.TASK_NAME)) {
 
             watcher.onProgress(percent -> System.out.println("  upload at " + percent + "%"));

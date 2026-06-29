@@ -1,15 +1,16 @@
 package org.tasktelemetry.example.clientservercrossprocess.example1;
 
+import java.io.IOException;
 import java.time.Duration;
 
 import org.tasktelemetry.TaskReporter;
 import org.tasktelemetry.TaskTelemetry;
-import org.tasktelemetry.transport.crossprocess.SocketTaskTransport;
+import org.tasktelemetry.transport.crossprocess.SocketServerTaskTransport;
 
 /**
- * Task process (producer): connects to the hub and runs a simulated upload,
+ * Task process (producer and server): binds the port and runs a simulated upload,
  * reporting progress. It does not know who is listening; heartbeats during the
- * pauses are produced automatically.
+ * pauses are produced automatically. Start this process <em>before</em> the client.
  */
 public final class TaskProcess {
 
@@ -20,13 +21,16 @@ public final class TaskProcess {
     private TaskProcess() {
     }
 
-    public static void main(String[] args) {
-        try (SocketTaskTransport transport = new SocketTaskTransport(ExampleConfig.HOST, ExampleConfig.PORT);
+    public static void main(String[] args) throws IOException {
+        try (SocketServerTaskTransport transport = new SocketServerTaskTransport(ExampleConfig.PORT);
              TaskTelemetry telemetry = TaskTelemetry.builder()
                         .transport(transport)
                         .heartbeatInterval(HEARTBEAT_INTERVAL)
                         .build()) {
 
+            System.out.println("Task server listening on "
+                    + ExampleConfig.HOST + ":" + transport.port()
+                    + " - connect client now");
             upload(telemetry, "foto.zip");
         }
     }
