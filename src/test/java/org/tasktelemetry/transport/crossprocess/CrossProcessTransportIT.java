@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -16,6 +17,8 @@ import org.junit.jupiter.api.Test;
 
 import org.tasktelemetry.event.TaskEvent;
 import org.tasktelemetry.event.TaskEventType;
+import org.tasktelemetry.monitor.TaskExecutionStatus;
+import org.tasktelemetry.watch.TaskWatcher;
 
 /**
  * Integration test: verifies end-to-end event delivery from a
@@ -138,7 +141,45 @@ class CrossProcessTransportIT {
                 .isThrownBy(() -> new SocketClientTaskTransport("localhost", freePort));
     }
 
+    @Test
+    void clientDetectsLostWhenServerDies() throws IOException, InterruptedException {
+        try (SocketServerTaskTransport server = new SocketServerTaskTransport(0);
+             SocketClientTaskTransport client =
+                     new SocketClientTaskTransport("localhost", server.port());
+             TaskWatcher watcher = new TaskWatcher(client, "CROSS_PROCESS_TASK",
+                     Duration.ofMillis(200), Duration.ofMillis(500))) {
+
+            // A background producer publishes one event so the watcher detects the
+            // running task and captures its execution id.
+            Thread producer = new Thread(() -> publishAfterDelay(server));
+            producer.start();
+
+            assertThat(watcher.awaitStart(Duration.ofSeconds(2)))
+                    .as("the client should detect the running task")
+                    .isTrue();
+            producer.join();
+
+            // The task dies: stopping the server breaks the connection and no further
+            // events (not even heartbeats) reach the client.
+            server.close();
+
+            assertThat(watcher.awaitCompletion())
+                    .as("after the task dies the client should observe LOST")
+                    .isEqualTo(TaskExecutionStatus.LOST);
+        }
+    }
+
     // --- helpers ---
+
+    private void publishAfterDelay(SocketServerTaskTransport server) {
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return;
+        }
+        server.publish(event(0, TaskEventType.STARTED, null));
+    }
 
     private static TaskEvent event(long sequenceNumber, TaskEventType type, Integer progress) {
         return TaskEvent.builder()
